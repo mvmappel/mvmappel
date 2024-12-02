@@ -1,0 +1,74 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Dynamictradingstrategies
+
+//@version=5
+strategy("EMA CROSSOVER STRATEGY", overlay = true)
+
+//////// USER INPUTS 
+EMA_L1 = input.int(defval = 13, title = "SEMA LENGTH", minval = 1, maxval = 1000, step = 1)
+EMA_L2 = input.int(defval = 34, title = "LEMA LENGTH", minval = 1, maxval = 1000, step = 1)
+
+/////// TIMING FUNCTIONS 
+SESSION = input.session(defval = "0915-1030")
+SQUAREOFF = input.session(defval = "1445-1500")
+
+Insession = time(timeframe.period,SESSION)
+Sqoff = time(timeframe.period,SQUAREOFF)
+
+/////// EMA INDICATOR 
+EMA1 = ta.ema(close,EMA_L1) /// 13 EMA
+EMA2 = ta.ema(close,EMA_L2) /// 34 EMA 
+
+
+///// BUY AND SHORT SIGNALS 
+
+buy = ta.crossover(EMA1,EMA2)
+short = ta.crossunder(EMA1,EMA2)
+
+
+////// PLOTTING BUY AND SHORT SIGNALS 
+
+plotshape(buy,title = "BUY", style = shape.triangleup, location = location.belowbar, 
+          color = color.green, size = size.small,text = "BUY",textcolor = color.white )
+
+plotshape(short,title = "SHORT", style = shape.triangledown, location = location.abovebar, 
+          color = color.red, size = size.small, text = "SHORT",textcolor = color.white )
+
+///// PLOTTING EMAs
+
+a = plot(EMA1, title = "SEMA", color = color.new(color.green,100),linewidth = 2)
+b = plot(EMA2, title = "LEMA", color = color.new(color.red,100),linewidth = 2)
+
+
+///// CREATING ALERTS
+
+//if buy
+//    alert("BUY",alert.freq_once_per_bar_close)
+
+//if short
+//    alert("SHORT",alert.freq_once_per_bar_close)
+	
+if LONGONLY
+    if buy and Insession 
+        strategy.entry("long", direction = strategy.long, comment = "BUY")
+
+    if strategy.position_size > 0
+        strategy.exit("long", from_entry = "long", stop = LONG_STOP, limit = LONG_TGT, comment_loss = "LOSS", comment_profit = "PROFIT" )
+
+if SHORTONLY
+    if short and Insession
+        strategy.entry("short", direction = strategy.short, comment = "SHORT")
+
+    if strategy.position_size < 0
+        strategy.exit("short", from_entry = "short", stop = SHORT_STOP, limit = SHORT_TGT, comment_loss = "LOSS", comment_profit = "PROFIT" )
+
+if Sqoff
+    strategy.close_all("SQOFF")	
+
+
+////// FILL 
+
+fill(a,b, color = color.new(#3bcee2, 70))
+
+
+////////////////////////////////////////////////////
