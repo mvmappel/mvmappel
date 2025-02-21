@@ -29,6 +29,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 	{
 		private SMA smaFast;
 		private SMA smaSlow;
+		private double PriorTradesAllProfit = 0;
 		
 		protected override void OnStateChange()
 		{
@@ -54,17 +55,17 @@ namespace NinjaTrader.NinjaScript.Strategies
 				// Disable this property for performance gains in Strategy Analyzer optimizations
 				// See the Help Guide for additional information
 				IsInstantiatedOnEachOptimizationIteration	= true;
-//				VolumeMALength					= 20;
-//				AtrThreshold					= 3.5;
-//				AdxThreshold					= 25;
-//				EMALength						= 9;
+				VolumeMALength					= 20;
+				AtrThreshold					= 3.5;
+				AdxThreshold					= 25;
+				EMALength						= 9;
 				Fast							= 7;
 				Slow							= 50;
 				Qty								= 1;
 				Sl								= 200;
 				Pt								= 400;
-				StartTime						= DateTime.Parse("05:00", System.Globalization.CultureInfo.InvariantCulture);
-				EndTime							= DateTime.Parse("09:00", System.Globalization.CultureInfo.InvariantCulture);
+				StartTime						= DateTime.Parse("07:30", System.Globalization.CultureInfo.InvariantCulture);
+				EndTime							= DateTime.Parse("14:00", System.Globalization.CultureInfo.InvariantCulture);
 				SunOk							= false;
 				MonOk                        	= false;
 				TuesOk							= true;
@@ -76,6 +77,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				ShortOnly						= false;
 				AddProfitTarget					= false;
 				LetItRun						= true;
+				DayPNLTarget					= 300;
 			}
 			else if (State == State.Configure)
 			{
@@ -119,6 +121,25 @@ namespace NinjaTrader.NinjaScript.Strategies
 			if (CurrentBars[0] < 1)
 				return;
 			
+//			if (Bars.IsFirstBarOfSession) {
+//				PriorTradesAllProfit = SystemPerformance.AllTrades.TradesPerformance.Currency.CumProfit;
+//			}
+			
+			double CurrPNL = 0;
+			CurrPNL = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar) + Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
+			Print("PNL: " + CurrPNL + "Target: " + DayPNLTarget);
+			if (CurrPNL >= DayPNLTarget) {
+				if (Position.MarketPosition == MarketPosition.Long) {
+					ExitLong(Convert.ToInt32(Qty));
+				}
+				
+				if (Position.MarketPosition == MarketPosition.Short) {
+					ExitShort(Convert.ToInt32(Qty));
+				}
+				
+				return;
+			}			
+			
 			if ((Times[0][0].TimeOfDay >= StartTime.TimeOfDay) && (Times[0][0].TimeOfDay <= EndTime.TimeOfDay)) {
 				// Trade away
 				//Print("Inside time span: " + Times[0][0].TimeOfDay);
@@ -127,7 +148,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				//Print("Outside time span - Start time: " + Times[0][0].TimeOfDay);
 				return;
 			}
-			
+		
 			if ((Time[0].DayOfWeek == DayOfWeek.Monday) && !MonOk)
 				return;
 			if ((Time[0].DayOfWeek == DayOfWeek.Tuesday) && !TuesOk)
@@ -320,6 +341,11 @@ namespace NinjaTrader.NinjaScript.Strategies
 		[Range(1, int.MaxValue), NinjaScriptProperty]
 		[Display(ResourceType = typeof(Custom.Resource), Name = "Slow", GroupName = "NinjaScriptStrategyParameters", Order = 1)]
 		public int Slow
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Display(Name="DayPNLTarget", Order=21, GroupName="Parameters")]
+		public double DayPNLTarget
 		{ get; set; }		
 		#endregion
 	}
