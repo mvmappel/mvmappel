@@ -127,7 +127,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 			
 			double CurrPNL = 0;
 			CurrPNL = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar) + Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
-			Print("PNL: " + CurrPNL + "Target: " + DayPNLTarget);
+			// Print("PNL: " + CurrPNL + "Target: " + DayPNLTarget);
 			if (CurrPNL >= DayPNLTarget) {
 				if (Position.MarketPosition == MarketPosition.Long) {
 					ExitLong(Convert.ToInt32(Qty));
