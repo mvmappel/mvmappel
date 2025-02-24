@@ -29,12 +29,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 	{
 		private SMA smaFast;
 		private SMA smaSlow;
+		private double PriorTradesAllProfit = 0;
+		private double RunningSessionPNL = 0;
 		
 		protected override void OnStateChange()
 		{
 			if (State == State.SetDefaults)
 			{
-				Description									= @"Crossover strategy that uses volume and average true range";
+				Description									= @"Crossover that captures per trade chuncks based on threshold set";
 				Name										= "MAsCrossoverStrategy";
 				Calculate									= Calculate.OnBarClose;
 				EntriesPerDirection							= 1;
@@ -58,24 +60,26 @@ namespace NinjaTrader.NinjaScript.Strategies
 				AtrThreshold					= 3.5;
 				AdxThreshold					= 25;
 				EMALength						= 9;
-				Fast							= 9;
-				Slow							= 26;
+				Fast							= 7;
+				Slow							= 50;
 				Qty								= 1;
 				Sl								= 200;
 				Pt								= 400;
 				StartTime						= DateTime.Parse("07:30", System.Globalization.CultureInfo.InvariantCulture);
-				EndTime							= DateTime.Parse("08:30", System.Globalization.CultureInfo.InvariantCulture);
+				EndTime							= DateTime.Parse("14:00", System.Globalization.CultureInfo.InvariantCulture);
 				SunOk							= false;
 				MonOk                        	= false;
-				TuesOk							= false;
-				WedOk							= false;
-				ThursOk							= false;
-				FriOk							= false;
+				TuesOk							= true;
+				WedOk							= true;
+				ThursOk							= true;
+				FriOk							= true;
 				SatOk							= false;
 				LongOnly						= false;
 				ShortOnly						= false;
 				AddProfitTarget					= false;
-				LetItRun						= false;
+				LetItRun						= true;
+				DayPNLTarget					= 300;
+				PerTradeThreshold			    = 35;
 			}
 			else if (State == State.Configure)
 			{
@@ -85,6 +89,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 				}
 				SetStopLoss(@"Long", CalculationMode.Currency, Sl, false);
 				SetStopLoss(@"Short", CalculationMode.Currency, Sl, false);
+				
+				RunningSessionPNL = 0;
 			}
 			else if (State == State.DataLoaded)
 			{
@@ -99,18 +105,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 			}
 		}
 
-		
-		// 5 minute chart
-		// volume > average volume (SMA length 20)
-		// atr > 3.5
-		// adx > 25
-		// only trade during eastern standard time market hours
-
-		// For longs close > open and close > 9 EMA
-		// For shorts open > close and the close < 9EMA
-
-		// stop loss 16 ticks
-		// profit target 16 ticks
 		protected override void OnBarUpdate()
 		{
 			if (BarsInProgress != 0) 
@@ -118,6 +112,45 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 			if (CurrentBars[0] < 1)
 				return;
+			
+//			if (Bars.IsFirstBarOfSession) {
+//				PriorTradesAllProfit = SystemPerformance.AllTrades.TradesPerformance.Currency.CumProfit;
+//			}
+			
+			double CurrUnrealizedPNL = 0;
+			//CurrUnrealizedPNL = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar) + Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
+			CurrUnrealizedPNL = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar);
+//			Print("PNL: " + CurrPNL + "Target: " + DayPNLTarget);
+			if (CurrUnrealizedPNL >= PerTradeThreshold) {
+				if (Position.MarketPosition == MarketPosition.Long) {
+					ExitLong(Convert.ToInt32(Qty));
+					EnterLong(Convert.ToInt32(Qty), @"Long");
+				}
+				
+				if (Position.MarketPosition == MarketPosition.Short) {
+					ExitShort(Convert.ToInt32(Qty));
+					EnterShort(Convert.ToInt32(Qty), @"Short");
+				}
+				
+				RunningSessionPNL += CurrUnrealizedPNL;
+				//return;
+			}
+			
+			double CurrRealizedPNL = 0;
+			//CurrUnrealizedPNL = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar) + Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
+			CurrRealizedPNL = Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
+//			Print("PNL: " + CurrPNL + "Target: " + DayPNLTarget);
+			if (CurrRealizedPNL >= DayPNLTarget) {
+				if (Position.MarketPosition == MarketPosition.Long) {
+					ExitLong(Convert.ToInt32(Qty));
+				}
+				
+				if (Position.MarketPosition == MarketPosition.Short) {
+					ExitShort(Convert.ToInt32(Qty));
+				}
+				
+				return;
+			}			
 			
 			if ((Times[0][0].TimeOfDay >= StartTime.TimeOfDay) && (Times[0][0].TimeOfDay <= EndTime.TimeOfDay)) {
 				// Trade away
@@ -127,7 +160,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				//Print("Outside time span - Start time: " + Times[0][0].TimeOfDay);
 				return;
 			}
-			
+		
 			if ((Time[0].DayOfWeek == DayOfWeek.Monday) && !MonOk)
 				return;
 			if ((Time[0].DayOfWeek == DayOfWeek.Tuesday) && !TuesOk)
@@ -154,23 +187,25 @@ namespace NinjaTrader.NinjaScript.Strategies
 			if (LetItRun) {
 				if (CrossAbove(smaFast, smaSlow, 1)) {
 						if (!ShortOnly) {
-							if (noTrades) {
+//							if (noTrades) {
 								EnterLong(Convert.ToInt32(Qty), @"Long");
-							} else {
-								reverseQty = Qty + 1;
-								EnterLong(Convert.ToInt32(reverseQty), @"Long");
-							}
+//							} 
+//								else {
+//								reverseQty = Qty * 2;
+//								EnterLong(Convert.ToInt32(reverseQty), @"Long");
+//							}
 						}
 				}
 	
 				if (CrossBelow(smaFast, smaSlow, 1)) {
 						if (!LongOnly) {
-							if (noTrades) {
+//							if (noTrades) {
 								EnterShort(Convert.ToInt32(Qty), @"Short");
-							} else {
-								reverseQty = Qty + 1;
-								EnterShort(Convert.ToInt32(reverseQty), @"Short");
-							}
+//							}
+//							else {
+//								reverseQty = Qty * 2;
+//								EnterShort(Convert.ToInt32(reverseQty), @"Short");
+//							}
 						}
 				}
 			} else {
@@ -318,6 +353,16 @@ namespace NinjaTrader.NinjaScript.Strategies
 		[Range(1, int.MaxValue), NinjaScriptProperty]
 		[Display(ResourceType = typeof(Custom.Resource), Name = "Slow", GroupName = "NinjaScriptStrategyParameters", Order = 1)]
 		public int Slow
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Display(Name="PerTradeThreshold", Order=21, GroupName="Parameters")]
+		public double PerTradeThreshold
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Display(Name="DayPNLTarget", Order=22, GroupName="Parameters")]
+		public double DayPNLTarget
 		{ get; set; }		
 		#endregion
 	}
