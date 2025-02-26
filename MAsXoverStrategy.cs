@@ -32,6 +32,10 @@ namespace NinjaTrader.NinjaScript.Strategies
 		private double PriorTradesAllProfit = 0;
 		private double RunningSessionPNL = 0;
 		
+		// Button Management
+		private System.Windows.Controls.Grid		buttonsGrid;
+		private System.Windows.Controls.Button		buyButton, sellButton, longOnlyButton, shortOnlyButton, longAndShortButton;
+		
 		protected override void OnStateChange()
 		{
 			if (State == State.SetDefaults)
@@ -56,31 +60,30 @@ namespace NinjaTrader.NinjaScript.Strategies
 				// Disable this property for performance gains in Strategy Analyzer optimizations
 				// See the Help Guide for additional information
 				IsInstantiatedOnEachOptimizationIteration	= true;
-				VolumeMALength					= 20;
-				AtrThreshold					= 3.5;
-				AdxThreshold					= 25;
-				EMALength						= 9;
-				Fast							= 7;
-				Slow							= 50;
-				Qty								= 1;
-				Sl								= 200;
-				Pt								= 400;
-				StartTime						= DateTime.Parse("07:30", System.Globalization.CultureInfo.InvariantCulture);
-				EndTime							= DateTime.Parse("14:00", System.Globalization.CultureInfo.InvariantCulture);
-				SunOk							= false;
-				MonOk                        	= false;
-				TuesOk							= true;
-				WedOk							= true;
-				ThursOk							= true;
-				FriOk							= true;
-				SatOk							= false;
-				LongOnly						= false;
-				ShortOnly						= false;
-				AddProfitTarget					= false;
-				LetItRun						= true;
-				DayPNLTarget					= 300;
-				PerTradeThresholdProfit		    = 35;
-				PerTradeThresholdLoss		    = -35;
+				VolumeMALength								= 20;
+				AtrThreshold								= 3.5;
+				AdxThreshold								= 25;
+				EMALength									= 9;
+				Fast										= 9;
+				Slow										= 26;
+				Qty											= 1;
+				Sl											= 50;
+				Pt											= 50;
+				StartTime									= DateTime.Parse("07:30", System.Globalization.CultureInfo.InvariantCulture);
+				EndTime										= DateTime.Parse("15:30", System.Globalization.CultureInfo.InvariantCulture);
+				SunOk										= false;
+				MonOk                        				= true;
+				TuesOk										= true;
+				WedOk										= true;
+				ThursOk										= true;
+				FriOk										= true;
+				SatOk										= false;
+				LongOnly									= false;
+				ShortOnly									= false;
+				AddProfitTarget								= true;
+				LetItRun									= true;
+				DayProfitTarget								= 100;
+				DayLossTarget								= -150;				
 			}
 			else if (State == State.Configure)
 			{
@@ -103,71 +106,125 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 				AddChartIndicator(smaFast);
 				AddChartIndicator(smaSlow);
+				
+				// Button Management
+				if (ChartControl != null)
+					CreateWPFControls();
+			}
+			else if (State == State.Terminated) // Button Management
+			{
+				if (ChartControl != null)
+					RemoveWPFControls();
 			}
 		}
+		
+		// Button Management
+		private void CreateWPFControls()
+		{
+			// if the script has already added the controls, do not add a second time.
+			if (UserControlCollection.Contains(buttonsGrid))
+				return;
+			
+			// when making WPF changes to the UI, run the code on the UI thread of the chart
+			ChartControl.Dispatcher.InvokeAsync((() =>
+			{
+				// this buttonGrid will contain the buttons
+				buttonsGrid = new System.Windows.Controls.Grid
+				{
+					Background			= Brushes.Red,
+					Name				= "ButtonsGrid",
+					HorizontalAlignment	= HorizontalAlignment.Left,
+					VerticalAlignment	= VerticalAlignment.Bottom
+				};
 
+				for (int i = 0; i < 3; i++)
+					buttonsGrid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition());
+				
+				for (int i = 0; i < 3; i++)
+					buttonsGrid.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition());
+
+				buyButton = new System.Windows.Controls.Button
+				{
+					Name		= "BuyButton",
+					Content		= "Buy",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Green
+				};
+
+				buyButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(buyButton);
+				System.Windows.Controls.Grid.SetRow(buyButton, 0);
+				System.Windows.Controls.Grid.SetColumn(buyButton, 1);				
+
+				sellButton = new System.Windows.Controls.Button
+				{
+					Name		= "SellButton",
+					Content		= "Sell",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Red
+				};
+
+				sellButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(sellButton);
+				System.Windows.Controls.Grid.SetRow(sellButton, 1);
+				System.Windows.Controls.Grid.SetColumn(sellButton, 1);
+				
+				longOnlyButton = new System.Windows.Controls.Button
+				{
+					Name		= "LongOnlyButton",
+					Content		= "Long Only",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Gray
+				};
+
+				longOnlyButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(longOnlyButton);
+				System.Windows.Controls.Grid.SetRow(longOnlyButton, 0);
+				System.Windows.Controls.Grid.SetColumn(longOnlyButton, 0);
+				
+				shortOnlyButton = new System.Windows.Controls.Button
+				{
+					Name		= "ShortOnlyButton",
+					Content		= "Short Only",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Gray
+				};
+
+				shortOnlyButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(shortOnlyButton);
+				System.Windows.Controls.Grid.SetRow(shortOnlyButton, 1);
+				System.Windows.Controls.Grid.SetColumn(shortOnlyButton, 0);
+				
+				longAndShortButton = new System.Windows.Controls.Button
+				{
+					Name		= "LongAndShortButton",
+					Content		= "Long & Short",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Gray
+				};
+
+				longAndShortButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(longAndShortButton);
+				System.Windows.Controls.Grid.SetRow(longAndShortButton, 3);
+				System.Windows.Controls.Grid.SetColumn(longAndShortButton, 0);				
+
+				// add our button grid to the main UserControlCollection over the chart
+				UserControlCollection.Add(buttonsGrid);
+			}));
+		}		
+		
 		protected override void OnBarUpdate()
 		{
 			if (BarsInProgress != 0) 
 				return;
 
 			if (CurrentBars[0] < 1)
-				return;
-			
-//			if (Bars.IsFirstBarOfSession) {
-//				PriorTradesAllProfit = SystemPerformance.AllTrades.TradesPerformance.Currency.CumProfit;
-//			}
-			
-			double CurrUnrealizedPNL = 0;
-			//CurrUnrealizedPNL = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar) + Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
-			CurrUnrealizedPNL = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar);
-//			Print("PNL: " + CurrPNL + "Target: " + DayPNLTarget);
-			if (CurrUnrealizedPNL >= PerTradeThresholdProfit) {
-				if (Position.MarketPosition == MarketPosition.Long) {
-					ExitLong(Convert.ToInt32(Qty));
-					EnterLong(Convert.ToInt32(Qty), @"Long");
-				}
-				
-				if (Position.MarketPosition == MarketPosition.Short) {
-					ExitShort(Convert.ToInt32(Qty));
-					EnterShort(Convert.ToInt32(Qty), @"Short");
-				}
-				
-				RunningSessionPNL += CurrUnrealizedPNL;
-				//return;
-			}
-			
-			if (CurrUnrealizedPNL <= PerTradeThresholdLoss) {
-				if (Position.MarketPosition == MarketPosition.Long) {
-					ExitLong(Convert.ToInt32(Qty));
-					EnterShort(Convert.ToInt32(Qty), @"Short");					
-				}
-				
-				if (Position.MarketPosition == MarketPosition.Short) {
-					ExitShort(Convert.ToInt32(Qty));
-					EnterLong(Convert.ToInt32(Qty), @"Long");
-				}
-				
-				RunningSessionPNL += CurrUnrealizedPNL;
-				//return;
-			}			
+				return;	
 			
 			double CurrRealizedPNL = 0;
-			//CurrUnrealizedPNL = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar) + Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
 			CurrRealizedPNL = Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
-//			Print("PNL: " + CurrPNL + "Target: " + DayPNLTarget);
-			if (CurrRealizedPNL >= DayPNLTarget) {
-				if (Position.MarketPosition == MarketPosition.Long) {
-					ExitLong(Convert.ToInt32(Qty));
-				}
-				
-				if (Position.MarketPosition == MarketPosition.Short) {
-					ExitShort(Convert.ToInt32(Qty));
-				}
-				
-				CloseStrategy("MAsCrossoverStrategy");
-				// return;
-			}			
+			if (CurrRealizedPNL >= DayProfitTarget || CurrRealizedPNL <= DayLossTarget)			
+				CloseStrategy("MAsCrossoverStrategy");	
 			
 			if ((Times[0][0].TimeOfDay >= StartTime.TimeOfDay) && (Times[0][0].TimeOfDay <= EndTime.TimeOfDay)) {
 				// Trade away
@@ -204,25 +261,13 @@ namespace NinjaTrader.NinjaScript.Strategies
 			if (LetItRun) {
 				if (CrossAbove(smaFast, smaSlow, 1)) {
 						if (!ShortOnly) {
-//							if (noTrades) {
 								EnterLong(Convert.ToInt32(Qty), @"Long");
-//							} 
-//								else {
-//								reverseQty = Qty * 2;
-//								EnterLong(Convert.ToInt32(reverseQty), @"Long");
-//							}
 						}
 				}
 	
 				if (CrossBelow(smaFast, smaSlow, 1)) {
 						if (!LongOnly) {
-//							if (noTrades) {
 								EnterShort(Convert.ToInt32(Qty), @"Short");
-//							}
-//							else {
-//								reverseQty = Qty * 2;
-//								EnterShort(Convert.ToInt32(reverseQty), @"Short");
-//							}
 						}
 				}
 			} else {
@@ -232,25 +277,86 @@ namespace NinjaTrader.NinjaScript.Strategies
 				if (v > va && adx > AdxThreshold && CrossBelow(smaFast, smaSlow, 1) && noTrades)
 						EnterShort(Convert.ToInt32(Qty), @"Short");			
 			}
-			
-			/*if (v > va && 
-				atr > AtrThreshold && 
-				adx > AdxThreshold && 
-				Close[0] > Open[0] && 
-				CrossAbove(smaFast, smaSlow, 1) &&
-				noTrades)
-					EnterLong(Convert.ToInt32(Qty), @"Long");
-			*/
-			
-			/*if (v > va && 
-				atr > AtrThreshold && 
-				adx > AdxThreshold && 
-				Close[0] < Open[0] && 
-				CrossBelow(smaFast, smaSlow, 1) && 
-				noTrades)
-					EnterShort(Convert.ToInt32(Qty), @"Short");
-			*/
 		}
+		
+		// Button Management
+		private void OnButtonClick(object sender, RoutedEventArgs rea)
+		{
+			System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+
+			if (button == buyButton)
+			{
+				EnterLong(Convert.ToInt32(Qty), @"Long");
+			}
+				
+			if (button == sellButton)
+			{
+				EnterShort(Convert.ToInt32(Qty), @"Short");
+			}
+			
+			if (button == longOnlyButton)
+			{
+				ShortOnly = false;
+				LongOnly = true;
+				button.IsEnabled = false;
+				button.Content = "Long Only *";
+				button.Background = Brushes.Black;
+				button.FontStyle = FontStyles.Italic;
+				button.FontWeight = FontWeights.Bold;
+			}
+			
+			if (button == shortOnlyButton)
+			{
+				ShortOnly = true;
+				LongOnly = false;
+			}
+			
+			if (button == longAndShortButton)
+			{
+				ShortOnly = false;
+				LongOnly = false;
+			}			
+		}
+		
+		// Button Management
+		private void RemoveWPFControls()
+		{
+			// when disabling the script, remove the button click handler methods from the click events
+			// set the buttons to null so the garbage collector knows to clean them up and free memory
+			ChartControl.Dispatcher.InvokeAsync((() =>
+			{
+				if (buttonsGrid != null)
+				{
+					if (buyButton != null)
+					{
+						buyButton.Click -= OnButtonClick;
+						buyButton = null;
+					}
+					if (sellButton != null)
+					{
+						sellButton.Click -= OnButtonClick;
+						sellButton = null;
+					}					
+					if (longOnlyButton != null)
+					{
+						longOnlyButton.Click -= OnButtonClick;
+						longOnlyButton = null;
+					}					
+					if (shortOnlyButton != null)
+					{
+						shortOnlyButton.Click -= OnButtonClick;
+						shortOnlyButton = null;
+					}
+					if (longAndShortButton != null)
+					{
+						longAndShortButton.Click -= OnButtonClick;
+						longAndShortButton = null;
+					}
+
+					UserControlCollection.Remove(buttonsGrid);
+				}
+			}));
+		}		
 
 		#region Properties
 		[NinjaScriptProperty]
@@ -373,18 +479,13 @@ namespace NinjaTrader.NinjaScript.Strategies
 		{ get; set; }
 		
 		[NinjaScriptProperty]
-		[Display(Name="PerTradeThresholdProfit", Order=21, GroupName="Parameters")]
-		public double PerTradeThresholdProfit
+		[Display(Name="DayProfitTarget", Order=21, GroupName="Parameters")]
+		public double DayProfitTarget
 		{ get; set; }
 		
 		[NinjaScriptProperty]
-		[Display(Name="PerTradeThresholdLoss", Order=22, GroupName="Parameters")]
-		public double PerTradeThresholdLoss
-		{ get; set; }		
-		
-		[NinjaScriptProperty]
-		[Display(Name="DayPNLTarget", Order=23, GroupName="Parameters")]
-		public double DayPNLTarget
+		[Display(Name="DayLossTarget", Order=22, GroupName="Parameters")]
+		public double DayLossTarget
 		{ get; set; }		
 		#endregion
 	}
