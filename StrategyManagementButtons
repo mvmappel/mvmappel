@@ -1,0 +1,312 @@
+//
+// Copyright (C) 2020, NinjaTrader LLC <www.ninjatrader.com>
+// NinjaTrader reserves the right to modify or overwrite this NinjaScript component
+// Coded by NinjaTrader_ChelseaB
+//
+#region Using declarations
+using System;
+using System.Windows;
+using System.Windows.Media;
+using NinjaTrader.Cbi;
+using NinjaTrader.Gui.Chart;
+using NinjaTrader.NinjaScript.Indicators;
+using NinjaTrader.NinjaScript.DrawingTools;
+#endregion
+
+namespace NinjaTrader.NinjaScript.Strategies.OrderManagementExamples
+{
+	public class ChartOrderButtonsStrategyExample : Strategy
+	{
+		private System.Windows.Controls.Grid		buttonsGrid;
+		private System.Windows.Controls.Button		longConditionalButton, longLimitButton, longMarketButton;
+		private bool								longConditionTriggerEnabled, longLimitEnabled;
+		private Order								longLimitOrder;
+		private SMA									sma1;
+
+		protected override void OnStateChange()
+		{
+			if (State == State.SetDefaults)
+			{
+				Description							= @"Example to demonstrate how to submit orders from a strategy's button click event";
+				Name								= "ChartOrderButtonsStrategyExample";
+				Calculate							= Calculate.OnPriceChange;
+				EntriesPerDirection					= int.MaxValue;
+			}
+			else if (State == State.DataLoaded)
+			{
+				if (ChartControl != null)
+					CreateWPFControls();
+
+				sma1 = SMA(14);
+				AddChartIndicator(sma1);
+
+				longConditionTriggerEnabled			= false;
+				longLimitEnabled					= false;
+			}
+			else if (State == State.Terminated)
+			{
+				if (ChartControl != null)
+					RemoveWPFControls();
+			}
+		}
+		
+		private void CreateWPFControls()
+		{
+			// if the script has already added the controls, do not add a second time.
+			if (UserControlCollection.Contains(buttonsGrid))
+				return;
+			
+			// when making WPF changes to the UI, run the code on the UI thread of the chart
+			ChartControl.Dispatcher.InvokeAsync((() =>
+			{
+				// this buttonGrid will contain the buttons
+				buttonsGrid = new System.Windows.Controls.Grid
+				{
+					Background			= Brushes.Red,
+					Name				= "ButtonsGrid",
+					HorizontalAlignment	= HorizontalAlignment.Right,
+					VerticalAlignment	= VerticalAlignment.Top
+				};
+
+				// add 3 columns to the grid
+				for (int i = 0; i < 3; i++)
+					buttonsGrid.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition());
+
+				#region Use case 1, immediately submitting a market order
+
+				longMarketButton = new System.Windows.Controls.Button
+				{
+					Name		= "LongMarketButton",
+					Content		= "Long market order",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Green
+				};
+
+				longMarketButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(longMarketButton);
+				System.Windows.Controls.Grid.SetColumn(longMarketButton, 0);
+				#endregion
+
+				#region Use case 2, submitting a limit order with limit price updated to indicator plot value
+
+				longLimitButton = new System.Windows.Controls.Button
+				{
+					Name		= "LongLimitButton",
+					Content		= "Long limit at indicator price",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Green
+				};
+				
+				longLimitButton.Click += OnButtonClick;
+				buttonsGrid.Children.Add(longLimitButton);
+				System.Windows.Controls.Grid.SetColumn(longLimitButton, 1);
+				#endregion
+
+				#region Use case 3, setting a trigger to submit a market order after conditions are met
+
+				longConditionalButton = new System.Windows.Controls.Button
+				{
+					Name		= "LongConditionalButton",
+					Content		= "Long after condition",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Green
+				};
+
+				longConditionalButton.Click += OnButtonClick;
+				buttonsGrid.Children.Add(longConditionalButton);
+				System.Windows.Controls.Grid.SetColumn(longConditionalButton, 2);
+				#endregion
+
+				// add our button grid to the main UserControlCollection over the chart
+				UserControlCollection.Add(buttonsGrid);
+			}));
+		}
+
+		protected override void OnBarUpdate()
+		{
+			#region Use case 2, submitting a limit order with limit price updated to indicator plot value
+
+			// if the order is submitted, continue updating the order to the price of the indicator if plot is below the ask
+			// if the plot is above the ask move below current ask, 
+			if (longLimitOrder != null && (longLimitOrder.OrderState == OrderState.Working || longLimitOrder.OrderState == OrderState.Accepted))
+			{
+				EnterLongLimit(Math.Min(Instrument.MasterInstrument.RoundToTickSize(sma1[0]), GetCurrentAsk() - 1 * TickSize), "Long limit");
+			}
+			#endregion
+
+			#region Use case 3, setting a trigger to submit a market order after conditions are met
+
+			if (longConditionTriggerEnabled
+				// your custom conditions for entering the trade can go here. I'll use the price crossing the SMA as an example.
+				&& (CrossAbove(sma1, Close, 1) || CrossBelow(sma1, Close, 1)))
+			{
+				longConditionTriggerEnabled = false;
+
+				EnterLong("Long conditional");
+
+				// its best practice to check for null, however the code cannot get to this point if the button does not exist
+				if (ChartControl != null && longConditionalButton != null)
+				{
+					ChartControl.Dispatcher.InvokeAsync((() =>
+					{
+						longConditionalButton.Content		= "Long after condition";
+						longConditionalButton.Background	= Brushes.Green;
+						longConditionalButton.Foreground	= Brushes.White;
+					}));
+				}
+
+				Draw.TextFixed(this, "infoBox", "SMA has crossed the market price, order submitted", TextPosition.BottomLeft);
+			}
+			#endregion
+		}
+
+		protected override void OnOrderUpdate(Order order, double limitPrice, double stopPrice, int quantity, int filled, double averageFillPrice, OrderState orderState, DateTime time, ErrorCode error, string comment)
+		{
+			#region Use case 2, submitting a limit order with limit price updated to indicator plot value
+
+			if (order.Name == "Long limit")
+			{
+				// assign order objects to variables from OnOrderUpdate()
+				longLimitOrder = order;
+
+				// detect when the limit order is working to provide a message
+				if (longLimitOrder.OrderState == OrderState.Working || longLimitOrder.OrderState == OrderState.Accepted)
+				{
+					Draw.TextFixed(this, "infoBox", "Limit order working at: " + limitPrice, TextPosition.BottomLeft);
+
+					if (ChartControl != null && longLimitButton != null)
+					{
+						// change the button text to show the limit can be cancelled
+						ChartControl.Dispatcher.InvokeAsync((() =>
+						{
+							longLimitButton.Content		= "Cancel limit";
+						}));
+					}
+				}
+
+				// when the order is no longer active, reset so a new order can be placed
+				else if (longLimitOrder.OrderState == OrderState.Cancelled || longLimitOrder.OrderState == OrderState.Rejected || longLimitOrder.OrderState == OrderState.Filled)
+				{
+					if (longLimitOrder.OrderState == OrderState.Filled)
+						Draw.TextFixed(this, "infoBox", "Limit filled at: " + averageFillPrice, TextPosition.BottomLeft);
+
+					if (longLimitOrder.OrderState == OrderState.Cancelled)
+						Draw.TextFixed(this, "infoBox", "Limit cancelled", TextPosition.BottomLeft);
+
+					if (ChartControl != null && longLimitButton != null)
+					{
+						// change the button text so we know we can place a new order
+						ChartControl.Dispatcher.InvokeAsync((() =>
+						{
+							longLimitButton.Content		= "Long limit at indicator price";
+							longLimitButton.Background	= Brushes.Green;
+							longLimitButton.Foreground	= Brushes.White;
+						}));
+					}
+
+					longLimitEnabled	= false;
+					longLimitOrder		= null;
+				}
+			}
+			#endregion
+		}
+
+		private void OnButtonClick(object sender, RoutedEventArgs rea)
+		{
+			System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+
+			#region Use case 1, immediately submitting a market order
+
+			if (button == longMarketButton)
+			{
+				EnterLong("Long market");
+			}
+			#endregion
+
+			#region Use case 2, submitting a limit order with limit price updated to indicator plot value
+
+			if (button == longLimitButton)
+			{
+				longLimitEnabled = !longLimitEnabled;
+
+				// only send a new order if there isn't one already working
+				if (longLimitEnabled && longLimitOrder == null)
+				{
+					// to use a price from a series (such as the SMA) from outside of a data driven method (like OnBarUpdate) the series will need to be synchronized first to update the sma and close price values
+					// buy limit orders must be below the ask. submit to either the sma or the ask minus 1 tick, whichever is lower
+					TriggerCustomEvent(o =>
+					{
+						EnterLongLimit(0, true, 1, Math.Min(Instrument.MasterInstrument.RoundToTickSize(sma1[0]), GetCurrentAsk() - 1 * TickSize), "Long limit");
+					}, null);
+				}
+
+				// if there one working cancel it
+				else if (!longLimitEnabled && longLimitOrder.OrderState == OrderState.Working || longLimitOrder.OrderState == OrderState.Accepted)
+				{
+					CancelOrder(longLimitOrder);
+				}
+				
+				// change the button text so we know the order is submitted
+				ChartControl.Dispatcher.InvokeAsync((() =>
+				{
+					button.Content		= longLimitEnabled ? "Limit submitted" : "Long limit at indicator price";
+					button.Background	= longLimitEnabled ? Brushes.LightGreen : Brushes.Green;
+					button.Foreground	= longLimitEnabled ? Brushes.Black : Brushes.White;
+				}));
+			}
+			#endregion
+
+			#region Use case 3, setting a trigger to submit a market order after conditions are met
+
+			if (button == longConditionalButton)
+			{
+				// flip bool to opposite value
+				longConditionTriggerEnabled = !longConditionTriggerEnabled;
+
+				// Change button text so we know the condition is set
+				ChartControl.Dispatcher.InvokeAsync((() =>
+				{
+					button.Content		= longConditionTriggerEnabled ? "Condition enabled" : "Long after condition";
+					button.Background	= longConditionTriggerEnabled ? Brushes.LightGreen : Brushes.Green;
+					button.Foreground	= longConditionTriggerEnabled ? Brushes.Black : Brushes.White;
+				}));
+
+				string message = longConditionTriggerEnabled ? "Condition triger enabled. Entry will be placed when the SMA crosses the market price" : "Condition trigger disabled";
+				Draw.TextFixed(this, "infoBox", message, TextPosition.BottomLeft);
+
+				// the chart won't refresh from a button click, so force a refresh to update our draw text.
+				ForceRefresh();
+			}
+			#endregion
+		}
+
+		private void RemoveWPFControls()
+		{
+			// when disabling the script, remove the button click handler methods from the click events
+			// set the buttons to null so the garbage collector knows to clean them up and free memory
+			ChartControl.Dispatcher.InvokeAsync((() =>
+			{
+				if (buttonsGrid != null)
+				{
+					if (longLimitButton != null)
+					{
+						longLimitButton.Click -= OnButtonClick;
+						longLimitButton = null;
+					}
+					if (longConditionalButton != null)
+					{
+						longConditionalButton.Click -= OnButtonClick;
+						longConditionalButton = null;
+					}
+					if (longMarketButton != null)
+					{
+						longMarketButton.Click -= OnButtonClick;
+						longMarketButton = null;
+					}
+
+					UserControlCollection.Remove(buttonsGrid);
+				}
+			}));
+		}
+	}
+}
