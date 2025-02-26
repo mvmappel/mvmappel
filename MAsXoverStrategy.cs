@@ -79,7 +79,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 				AddProfitTarget					= false;
 				LetItRun						= true;
 				DayPNLTarget					= 300;
-				PerTradeThreshold			    = 35;
+				PerTradeThresholdProfit		    = 35;
+				PerTradeThresholdLoss		    = -35;
 			}
 			else if (State == State.Configure)
 			{
@@ -121,7 +122,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 			//CurrUnrealizedPNL = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar) + Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
 			CurrUnrealizedPNL = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar);
 //			Print("PNL: " + CurrPNL + "Target: " + DayPNLTarget);
-			if (CurrUnrealizedPNL >= PerTradeThreshold) {
+			if (CurrUnrealizedPNL >= PerTradeThresholdProfit) {
 				if (Position.MarketPosition == MarketPosition.Long) {
 					ExitLong(Convert.ToInt32(Qty));
 					EnterLong(Convert.ToInt32(Qty), @"Long");
@@ -136,6 +137,21 @@ namespace NinjaTrader.NinjaScript.Strategies
 				//return;
 			}
 			
+			if (CurrUnrealizedPNL <= PerTradeThresholdLoss) {
+				if (Position.MarketPosition == MarketPosition.Long) {
+					ExitLong(Convert.ToInt32(Qty));
+					EnterShort(Convert.ToInt32(Qty), @"Short");					
+				}
+				
+				if (Position.MarketPosition == MarketPosition.Short) {
+					ExitShort(Convert.ToInt32(Qty));
+					EnterLong(Convert.ToInt32(Qty), @"Long");
+				}
+				
+				RunningSessionPNL += CurrUnrealizedPNL;
+				//return;
+			}			
+			
 			double CurrRealizedPNL = 0;
 			//CurrUnrealizedPNL = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar) + Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
 			CurrRealizedPNL = Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
@@ -149,7 +165,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 					ExitShort(Convert.ToInt32(Qty));
 				}
 				
-				return;
+				CloseStrategy("MAsCrossoverStrategy");
+				// return;
 			}			
 			
 			if ((Times[0][0].TimeOfDay >= StartTime.TimeOfDay) && (Times[0][0].TimeOfDay <= EndTime.TimeOfDay)) {
@@ -356,12 +373,17 @@ namespace NinjaTrader.NinjaScript.Strategies
 		{ get; set; }
 		
 		[NinjaScriptProperty]
-		[Display(Name="PerTradeThreshold", Order=21, GroupName="Parameters")]
-		public double PerTradeThreshold
+		[Display(Name="PerTradeThresholdProfit", Order=21, GroupName="Parameters")]
+		public double PerTradeThresholdProfit
 		{ get; set; }
 		
 		[NinjaScriptProperty]
-		[Display(Name="DayPNLTarget", Order=22, GroupName="Parameters")]
+		[Display(Name="PerTradeThresholdLoss", Order=22, GroupName="Parameters")]
+		public double PerTradeThresholdLoss
+		{ get; set; }		
+		
+		[NinjaScriptProperty]
+		[Display(Name="DayPNLTarget", Order=23, GroupName="Parameters")]
 		public double DayPNLTarget
 		{ get; set; }		
 		#endregion
