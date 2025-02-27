@@ -1,6 +1,7 @@
 #region Using declarations
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -34,14 +35,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 		
 		// Button Management
 		private System.Windows.Controls.Grid		buttonsGrid;
-		private System.Windows.Controls.Button		buyButton, sellButton, longOnlyButton, shortOnlyButton, longAndShortButton;
+		private System.Windows.Controls.Button		buyButton, sellButton, longOnlyButton, shortOnlyButton, longAndShortButton, closeButton, qtyPlusButton, qtyMinusButton, pauseButton;
 		
 		protected override void OnStateChange()
 		{
 			if (State == State.SetDefaults)
 			{
 				Description									= @"Crossover that captures per trade chuncks based on threshold set";
-				Name										= "MAsCrossoverStrategy";
+				Name										= "MAsXoverStrategy";
 				Calculate									= Calculate.OnBarClose;
 				EntriesPerDirection							= 1;
 				EntryHandling								= EntryHandling.AllEntries;
@@ -95,6 +96,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				SetStopLoss(@"Short", CalculationMode.Currency, Sl, false);
 				
 				RunningSessionPNL = 0;
+				Qty = 1;
 			}
 			else if (State == State.DataLoaded)
 			{
@@ -118,7 +120,167 @@ namespace NinjaTrader.NinjaScript.Strategies
 			}
 		}
 		
+		// Button Management	
+		
+		protected override void OnBarUpdate()
+		{
+			if (BarsInProgress != 0) 
+				return;
+
+			if (CurrentBars[0] < 1)
+				return;	
+			
+			double CurrRealizedPNL = 0;
+			CurrRealizedPNL = Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
+			if (CurrRealizedPNL >= DayProfitTarget || CurrRealizedPNL <= DayLossTarget)
+				ShutItDown();
+			
+			if ((Times[0][0].TimeOfDay >= StartTime.TimeOfDay) && (Times[0][0].TimeOfDay <= EndTime.TimeOfDay)) {
+				// Trade away
+				//Print("Inside time span: " + Times[0][0].TimeOfDay);
+			}
+			else {
+				//Print("Outside time span - Start time: " + Times[0][0].TimeOfDay);
+				return;
+			}
+		
+			if ((Time[0].DayOfWeek == DayOfWeek.Monday) && !MonOk)
+				return;
+			if ((Time[0].DayOfWeek == DayOfWeek.Tuesday) && !TuesOk)
+				return;
+			if ((Time[0].DayOfWeek == DayOfWeek.Wednesday) && !WedOk)
+				return;
+			if ((Time[0].DayOfWeek == DayOfWeek.Thursday) && !ThursOk)
+				return;
+			if ((Time[0].DayOfWeek == DayOfWeek.Friday) && !FriOk)
+				return;
+			if ((Time[0].DayOfWeek == DayOfWeek.Saturday) && !SatOk)
+				return;
+			if ((Time[0].DayOfWeek == DayOfWeek.Sunday) && !SunOk)
+				return;			
+					
+			double v = Volume[0];
+			double va = EMA(Volume, VolumeMALength)[0];
+			double atr = ATR(14)[0];
+			double adx = ADX(14)[0];
+			double ema = EMA(Close, EMALength)[0];
+			int reverseQty = 0;
+			bool noTrades = Position.MarketPosition == MarketPosition.Flat;
+			
+			if (LetItRun) {
+				if (CrossAbove(smaFast, smaSlow, 1)) {
+						if (!ShortOnly) {
+								EnterLong(Convert.ToInt32(Qty), @"Long");
+						}
+				}
+	
+				if (CrossBelow(smaFast, smaSlow, 1)) {
+						if (!LongOnly) {
+								EnterShort(Convert.ToInt32(Qty), @"Short");
+						}
+				}
+			} else {
+				if (v > va && adx > AdxThreshold && CrossAbove(smaFast, smaSlow, 1) && noTrades)
+						EnterLong(Convert.ToInt32(Qty), @"Long");
+				
+				if (v > va && adx > AdxThreshold && CrossBelow(smaFast, smaSlow, 1) && noTrades)
+						EnterShort(Convert.ToInt32(Qty), @"Short");			
+			}
+		}
+		
+		private void ShutItDown()
+		{
+			Account.Flatten(new [] { Instrument.GetInstrument("MNQ") });
+			
+			CloseStrategy("MAsCrossoverStrategy");
+		}
+		
 		// Button Management
+		private void OnButtonClick(object sender, RoutedEventArgs rea)
+		{
+			System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+
+			if (button == buyButton)
+			{
+				if (Position.MarketPosition == MarketPosition.Flat)
+					EnterLong(Convert.ToInt32(Qty), @"Long");
+			}
+				
+			if (button == sellButton)
+			{
+				if (Position.MarketPosition == MarketPosition.Flat)
+					EnterShort(Convert.ToInt32(Qty), @"Short");
+			}
+			
+			if (button == closeButton)
+			{
+				if (Position.MarketPosition == MarketPosition.Long) {
+					ExitLong(Convert.ToInt32(Qty));
+				} else if (Position.MarketPosition == MarketPosition.Short) {
+					ExitShort(Convert.ToInt32(Qty));
+				}
+			}			
+			
+			if (button == longOnlyButton)
+			{
+				ShortOnly = false;
+				LongOnly = true;
+				shortOnlyButton.IsEnabled = true;
+				longAndShortButton.IsEnabled = true;
+				button.IsEnabled = false;
+				button.Content = "Long Only *";
+				button.Background = Brushes.Black;
+				button.FontStyle = FontStyles.Italic;
+				button.FontWeight = FontWeights.Bold;
+			}
+			
+			if (button == shortOnlyButton)
+			{
+				LongOnly = false;
+				ShortOnly = true;
+				longOnlyButton.IsEnabled = true;
+				longAndShortButton.IsEnabled = true;
+				button.IsEnabled = false;
+				button.Content = "Short Only *";
+				button.Background = Brushes.Black;
+				button.FontStyle = FontStyles.Italic;
+				button.FontWeight = FontWeights.Bold;				
+			}
+			
+			if (button == longAndShortButton)
+			{
+				LongOnly = false;
+				ShortOnly = false;
+				shortOnlyButton.IsEnabled = true;
+				longOnlyButton.IsEnabled = true;
+				button.IsEnabled = false;
+				button.Content = "Long & Short *";
+				button.Background = Brushes.Black;
+				button.FontStyle = FontStyles.Italic;
+				button.FontWeight = FontWeights.Bold;
+			}
+			
+			if (button == qtyPlusButton)
+			{
+				Qty++;
+				if (Qty > 10) {
+					Qty = 10;
+				}			
+				button.Content = "Qty+ " + Qty;
+				qtyMinusButton.Content = "Qty- " + Qty;
+			}
+			
+			if (button == qtyMinusButton)
+			{
+				Qty--;
+				if (Qty < 1) {
+					Qty = 1;
+				}			
+				button.Content = "Qty- " + Qty;
+				qtyPlusButton.Content = "Qty+ " + Qty;
+			}			
+		}
+
 		private void CreateWPFControls()
 		{
 			// if the script has already added the controls, do not add a second time.
@@ -206,126 +368,94 @@ namespace NinjaTrader.NinjaScript.Strategies
 				longAndShortButton.Click += OnButtonClick;				
 				buttonsGrid.Children.Add(longAndShortButton);
 				System.Windows.Controls.Grid.SetRow(longAndShortButton, 3);
-				System.Windows.Controls.Grid.SetColumn(longAndShortButton, 0);				
+				System.Windows.Controls.Grid.SetColumn(longAndShortButton, 0);
+				
+				closeButton = new System.Windows.Controls.Button
+				{
+					Name		= "CloseButton",
+					Content		= "Close",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Crimson
+				};
+
+				closeButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(closeButton);
+				System.Windows.Controls.Grid.SetRow(closeButton, 3);
+				System.Windows.Controls.Grid.SetColumn(closeButton, 1);
+				
+				qtyPlusButton = new System.Windows.Controls.Button
+				{
+					Name		= "QtyPlusButton",
+					Content		= "Qty+ " + Qty,
+					Foreground	= Brushes.White,
+					Background	= Brushes.CornflowerBlue
+				};
+
+				qtyPlusButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(qtyPlusButton);
+				System.Windows.Controls.Grid.SetRow(qtyPlusButton, 0);
+				System.Windows.Controls.Grid.SetColumn(qtyPlusButton, 2);
+				
+				qtyMinusButton = new System.Windows.Controls.Button
+				{
+					Name		= "QtyMinusButton",
+					Content		= "Qty- " + Qty,
+					Foreground	= Brushes.White,
+					Background	= Brushes.CornflowerBlue
+				};
+
+				qtyMinusButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(qtyMinusButton);
+				System.Windows.Controls.Grid.SetRow(qtyMinusButton, 1);
+				System.Windows.Controls.Grid.SetColumn(qtyMinusButton, 2);
+				
+				pauseButton = new System.Windows.Controls.Button
+				{
+					Name		= "PauseButton",
+					Content		= "Pause",
+					Foreground	= Brushes.White,
+					Background	= Brushes.CornflowerBlue
+				};
+
+				pauseButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(pauseButton);
+				System.Windows.Controls.Grid.SetRow(pauseButton, 2);
+				System.Windows.Controls.Grid.SetColumn(pauseButton, 2);				
 
 				// add our button grid to the main UserControlCollection over the chart
 				UserControlCollection.Add(buttonsGrid);
 				
-				if (!LongOnly && !ShortOnly) {
-					longAndShortButton.IsEnabled = false;
+				if (!LongOnly && !ShortOnly || LongOnly && ShortOnly) {
+					shortOnlyButton.IsEnabled = true;
+					longOnlyButton.IsEnabled = true;
 					longAndShortButton.IsEnabled = false;
 					longAndShortButton.Content = "Long & Short *";
 					longAndShortButton.Background = Brushes.Black;
 					longAndShortButton.FontStyle = FontStyles.Italic;
 					longAndShortButton.FontWeight = FontWeights.Bold;					
 				}
+				
+				if (ShortOnly) {
+					shortOnlyButton.IsEnabled = false;
+					longOnlyButton.IsEnabled = true;
+					longAndShortButton.IsEnabled = true;
+					longAndShortButton.Content = "Short Only *";
+					longAndShortButton.Background = Brushes.Black;
+					longAndShortButton.FontStyle = FontStyles.Italic;
+					longAndShortButton.FontWeight = FontWeights.Bold;					
+				}
+				
+				if (LongOnly) {
+					shortOnlyButton.IsEnabled = true;
+					longOnlyButton.IsEnabled = false;
+					longAndShortButton.IsEnabled = true;
+					longAndShortButton.Content = "Long Only *";
+					longAndShortButton.Background = Brushes.Black;
+					longAndShortButton.FontStyle = FontStyles.Italic;
+					longAndShortButton.FontWeight = FontWeights.Bold;					
+				}				
 			}));
 		}		
-		
-		protected override void OnBarUpdate()
-		{
-			if (BarsInProgress != 0) 
-				return;
-
-			if (CurrentBars[0] < 1)
-				return;	
-			
-			double CurrRealizedPNL = 0;
-			CurrRealizedPNL = Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
-			if (CurrRealizedPNL >= DayProfitTarget || CurrRealizedPNL <= DayLossTarget)			
-				CloseStrategy("MAsCrossoverStrategy");	
-			
-			if ((Times[0][0].TimeOfDay >= StartTime.TimeOfDay) && (Times[0][0].TimeOfDay <= EndTime.TimeOfDay)) {
-				// Trade away
-				//Print("Inside time span: " + Times[0][0].TimeOfDay);
-			}
-			else {
-				//Print("Outside time span - Start time: " + Times[0][0].TimeOfDay);
-				return;
-			}
-		
-			if ((Time[0].DayOfWeek == DayOfWeek.Monday) && !MonOk)
-				return;
-			if ((Time[0].DayOfWeek == DayOfWeek.Tuesday) && !TuesOk)
-				return;
-			if ((Time[0].DayOfWeek == DayOfWeek.Wednesday) && !WedOk)
-				return;
-			if ((Time[0].DayOfWeek == DayOfWeek.Thursday) && !ThursOk)
-				return;
-			if ((Time[0].DayOfWeek == DayOfWeek.Friday) && !FriOk)
-				return;
-			if ((Time[0].DayOfWeek == DayOfWeek.Saturday) && !SatOk)
-				return;
-			if ((Time[0].DayOfWeek == DayOfWeek.Sunday) && !SunOk)
-				return;			
-					
-			double v = Volume[0];
-			double va = EMA(Volume, VolumeMALength)[0];
-			double atr = ATR(14)[0];
-			double adx = ADX(14)[0];
-			double ema = EMA(Close, EMALength)[0];
-			int reverseQty = 0;
-			bool noTrades = Position.MarketPosition == MarketPosition.Flat;
-			
-			if (LetItRun) {
-				if (CrossAbove(smaFast, smaSlow, 1)) {
-						if (!ShortOnly) {
-								EnterLong(Convert.ToInt32(Qty), @"Long");
-						}
-				}
-	
-				if (CrossBelow(smaFast, smaSlow, 1)) {
-						if (!LongOnly) {
-								EnterShort(Convert.ToInt32(Qty), @"Short");
-						}
-				}
-			} else {
-				if (v > va && adx > AdxThreshold && CrossAbove(smaFast, smaSlow, 1) && noTrades)
-						EnterLong(Convert.ToInt32(Qty), @"Long");
-				
-				if (v > va && adx > AdxThreshold && CrossBelow(smaFast, smaSlow, 1) && noTrades)
-						EnterShort(Convert.ToInt32(Qty), @"Short");			
-			}
-		}
-		
-		// Button Management
-		private void OnButtonClick(object sender, RoutedEventArgs rea)
-		{
-			System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
-
-			if (button == buyButton)
-			{
-				EnterLong(Convert.ToInt32(Qty), @"Long");
-			}
-				
-			if (button == sellButton)
-			{
-				EnterShort(Convert.ToInt32(Qty), @"Short");
-			}
-			
-			if (button == longOnlyButton)
-			{
-				ShortOnly = false;
-				LongOnly = true;
-				button.IsEnabled = false;
-				button.Content = "Long Only *";
-				button.Background = Brushes.Black;
-				button.FontStyle = FontStyles.Italic;
-				button.FontWeight = FontWeights.Bold;
-			}
-			
-			if (button == shortOnlyButton)
-			{
-				ShortOnly = true;
-				LongOnly = false;
-			}
-			
-			if (button == longAndShortButton)
-			{
-				ShortOnly = false;
-				LongOnly = false;
-			}			
-		}
 		
 		// Button Management
 		private void RemoveWPFControls()
@@ -361,7 +491,27 @@ namespace NinjaTrader.NinjaScript.Strategies
 						longAndShortButton.Click -= OnButtonClick;
 						longAndShortButton = null;
 					}
-
+					if (closeButton != null)
+					{
+						closeButton.Click -= OnButtonClick;
+						closeButton = null;
+					}					
+					if (qtyPlusButton != null)
+					{
+						qtyPlusButton.Click -= OnButtonClick;
+						qtyPlusButton = null;
+					}
+					if (qtyMinusButton != null)
+					{
+						qtyMinusButton.Click -= OnButtonClick;
+						qtyMinusButton = null;
+					}
+					if (pauseButton != null)
+					{
+						pauseButton.Click -= OnButtonClick;
+						pauseButton = null;
+					}					
+										
 					UserControlCollection.Remove(buttonsGrid);
 				}
 			}));
