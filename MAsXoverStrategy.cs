@@ -25,7 +25,7 @@ using NinjaTrader.NinjaScript.DrawingTools;
 //This namespace holds Strategies in this folder and is required. Do not change it. 
 namespace NinjaTrader.NinjaScript.Strategies
 {
-	public class MAsCrossoverStrategy : Strategy
+	public class MAsXoverStrategy : Strategy
 	{
 		private SMA smaFast;
 		private SMA smaSlow;
@@ -210,6 +210,15 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 				// add our button grid to the main UserControlCollection over the chart
 				UserControlCollection.Add(buttonsGrid);
+				
+				if (!LongOnly && !ShortOnly) {
+					longAndShortButton.IsEnabled = false;
+					longAndShortButton.IsEnabled = false;
+					longAndShortButton.Content = "Long & Short *";
+					longAndShortButton.Background = Brushes.Black;
+					longAndShortButton.FontStyle = FontStyles.Italic;
+					longAndShortButton.FontWeight = FontWeights.Bold;					
+				}
 			}));
 		}		
 		
