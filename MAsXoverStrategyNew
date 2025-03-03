@@ -131,8 +131,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 			double CurrRealizedPNL = 0;
 			CurrRealizedPNL = Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
 			if (CurrRealizedPNL >= DayProfitTarget || CurrRealizedPNL <= DayLossTarget)
-				return;
-				//ShutItDown();
+				ShutItDown();
+				//return;
 			
 			if ((Times[0][0].TimeOfDay >= StartTime.TimeOfDay) && (Times[0][0].TimeOfDay <= EndTime.TimeOfDay)) {
 				// Trade away
@@ -268,27 +268,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				longOnlyButton.FontStyle = FontStyles.Normal;
 				longOnlyButton.FontWeight = FontWeights.Normal;				
 			}
-			
-//			if (button == qtyPlusButton)
-//			{
-//				Qty++;
-//				if (Qty > 1) {
-//					Qty = 1;
-//				}			
-//				button.Content = "Qty+ " + Qty;
-//				qtyMinusButton.Content = "Qty- " + Qty;
-//			}
-			
-//			if (button == qtyMinusButton)
-//			{
-//				Qty--;
-//				if (Qty < 1) {
-//					Qty = 1;
-//				}			
-//				button.Content = "Qty- " + Qty;
-//				qtyPlusButton.Content = "Qty+ " + Qty;
-//			}
-			
+				
 			if (button == pauseButton)
 			{
 				string pauseChk = button.Content.ToString();
@@ -302,7 +282,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				}
 			}
 			
-			if (button == killSwitchButton)
+			if (button == shutDownButton)
 			{
 				ShutItDown();
 			}			
@@ -501,25 +481,15 @@ namespace NinjaTrader.NinjaScript.Strategies
 						closeButton.Click -= OnButtonClick;
 						closeButton = null;
 					}					
-//					if (qtyPlusButton != null)
-//					{
-//						qtyPlusButton.Click -= OnButtonClick;
-//						qtyPlusButton = null;
-//					}
-//					if (qtyMinusButton != null)
-//					{
-//						qtyMinusButton.Click -= OnButtonClick;
-//						qtyMinusButton = null;
-//					}
 					if (pauseButton != null)
 					{
 						pauseButton.Click -= OnButtonClick;
 						pauseButton = null;
 					}
-					if (killSwitchButton != null)
+					if (shutDownButton != null)
 					{
-						killSwitchButton.Click -= OnButtonClick;
-						killSwitchButton = null;
+						shutDownButton.Click -= OnButtonClick;
+						shutDownButton = null;
 					}					
 										
 					UserControlCollection.Remove(buttonsGrid);
@@ -530,30 +500,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 		#endregion
 
 		#region Properties
-//		[NinjaScriptProperty]
-//		[Range(1, int.MaxValue)]
-//		[Display(Name="VolumeMALength", Order=1, GroupName="Parameters")]
-//		public int VolumeMALength
-//		{ get; set; }
-
-//		[NinjaScriptProperty]
-//		[Range(1, double.MaxValue)]
-//		[Display(Name="AtrThreshold", Order=2, GroupName="Parameters")]
-//		public double AtrThreshold
-//		{ get; set; }
-
-//		[NinjaScriptProperty]
-//		[Range(1, int.MaxValue)]
-//		[Display(Name="AdxThreshold", Order=3, GroupName="Parameters")]
-//		public int AdxThreshold
-//		{ get; set; }
-
-//		[NinjaScriptProperty]
-//		[Range(1, int.MaxValue)]
-//		[Display(Name="EMALength", Order=4, GroupName="Parameters")]
-//		public int EMALength
-//		{ get; set; }
-
 		[NinjaScriptProperty]
 		[Range(1, int.MaxValue)]
 		[Display(Name="Qty", Order=5, GroupName="Parameters")]
