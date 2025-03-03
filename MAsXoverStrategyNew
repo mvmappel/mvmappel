@@ -36,7 +36,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 		
 		// Button Management
 		private System.Windows.Controls.Grid		buttonsGrid;
-		private System.Windows.Controls.Button		buyButton, sellButton, longOnlyButton, shortOnlyButton, longAndShortButton, closeButton, qtyPlusButton, qtyMinusButton, pauseButton, killSwitchButton;
+		private System.Windows.Controls.Button		buyButton, sellButton, longOnlyButton, shortOnlyButton, longAndShortButton, closeButton, qtyPlusButton, qtyMinusButton, pauseButton, shutDownButton;
 		
 		protected override void OnStateChange()
 		{
@@ -320,7 +320,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				// this buttonGrid will contain the buttons
 				buttonsGrid = new System.Windows.Controls.Grid
 				{
-					Background			= Brushes.Red,
+					Background			= Brushes.White,
 					Name				= "ButtonsGrid",
 					HorizontalAlignment	= HorizontalAlignment.Left,
 					VerticalAlignment	= VerticalAlignment.Bottom
@@ -331,41 +331,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 				
 				for (int i = 0; i < 3; i++)
 					buttonsGrid.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition());
-
-				buyButton = new System.Windows.Controls.Button
-				{
-					Name		= "BuyButton",
-					Content		= "Buy",
-					Foreground	= Brushes.White,
-					Background	= Brushes.Green
-				};
-
-				buyButton.Click += OnButtonClick;				
-				buttonsGrid.Children.Add(buyButton);
-				System.Windows.Controls.Grid.SetRow(buyButton, 0);
-				System.Windows.Controls.Grid.SetColumn(buyButton, 1);				
-
-				sellButton = new System.Windows.Controls.Button
-				{
-					Name		= "SellButton",
-					Content		= "Sell",
-					Foreground	= Brushes.White,
-					Background	= Brushes.Red
-				};
-
-				sellButton.Click += OnButtonClick;				
-				buttonsGrid.Children.Add(sellButton);
-				System.Windows.Controls.Grid.SetRow(sellButton, 1);
-				System.Windows.Controls.Grid.SetColumn(sellButton, 1);
-				
+			
 				longOnlyButton = new System.Windows.Controls.Button
 				{
 					Name		= "LongOnlyButton",
 					Content		= "Long Only",
 					Foreground	= Brushes.White,
 					Background	= Brushes.Gray
-				};
-
+				};				
 				longOnlyButton.Click += OnButtonClick;				
 				buttonsGrid.Children.Add(longOnlyButton);
 				System.Windows.Controls.Grid.SetRow(longOnlyButton, 0);
@@ -378,7 +351,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 					Foreground	= Brushes.White,
 					Background	= Brushes.Gray
 				};
-
 				shortOnlyButton.Click += OnButtonClick;				
 				buttonsGrid.Children.Add(shortOnlyButton);
 				System.Windows.Controls.Grid.SetRow(shortOnlyButton, 1);
@@ -391,12 +363,35 @@ namespace NinjaTrader.NinjaScript.Strategies
 					Foreground	= Brushes.White,
 					Background	= Brushes.Gray
 				};
-
 				longAndShortButton.Click += OnButtonClick;				
 				buttonsGrid.Children.Add(longAndShortButton);
-				System.Windows.Controls.Grid.SetRow(longAndShortButton, 3);
+				System.Windows.Controls.Grid.SetRow(longAndShortButton, 2);
 				System.Windows.Controls.Grid.SetColumn(longAndShortButton, 0);
-				
+
+				buyButton = new System.Windows.Controls.Button
+				{
+					Name		= "BuyButton",
+					Content		= "Buy",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Green
+				};
+				buyButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(buyButton);
+				System.Windows.Controls.Grid.SetRow(buyButton, 0);
+				System.Windows.Controls.Grid.SetColumn(buyButton, 1);				
+
+				sellButton = new System.Windows.Controls.Button
+				{
+					Name		= "SellButton",
+					Content		= "Sell",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Red
+				};
+				sellButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(sellButton);
+				System.Windows.Controls.Grid.SetRow(sellButton, 1);
+				System.Windows.Controls.Grid.SetColumn(sellButton, 1);
+								
 				closeButton = new System.Windows.Controls.Button
 				{
 					Name		= "CloseButton",
@@ -404,37 +399,10 @@ namespace NinjaTrader.NinjaScript.Strategies
 					Foreground	= Brushes.White,
 					Background	= Brushes.Crimson
 				};
-
 				closeButton.Click += OnButtonClick;				
 				buttonsGrid.Children.Add(closeButton);
-				System.Windows.Controls.Grid.SetRow(closeButton, 3);
-				System.Windows.Controls.Grid.SetColumn(closeButton, 1);
-				
-//				qtyPlusButton = new System.Windows.Controls.Button
-//				{
-//					Name		= "QtyPlusButton",
-//					Content		= "Qty+ " + Qty,
-//					Foreground	= Brushes.White,
-//					Background	= Brushes.CornflowerBlue
-//				};
-
-//				qtyPlusButton.Click += OnButtonClick;				
-//				buttonsGrid.Children.Add(qtyPlusButton);
-//				System.Windows.Controls.Grid.SetRow(qtyPlusButton, 0);
-//				System.Windows.Controls.Grid.SetColumn(qtyPlusButton, 2);
-				
-//				qtyMinusButton = new System.Windows.Controls.Button
-//				{
-//					Name		= "QtyMinusButton",
-//					Content		= "Qty- " + Qty,
-//					Foreground	= Brushes.White,
-//					Background	= Brushes.CornflowerBlue
-//				};
-
-//				qtyMinusButton.Click += OnButtonClick;				
-//				buttonsGrid.Children.Add(qtyMinusButton);
-//				System.Windows.Controls.Grid.SetRow(qtyMinusButton, 1);
-//				System.Windows.Controls.Grid.SetColumn(qtyMinusButton, 2);
+				System.Windows.Controls.Grid.SetRow(closeButton, 2);
+				System.Windows.Controls.Grid.SetColumn(closeButton, 1);			
 				
 				pauseButton = new System.Windows.Controls.Button
 				{
@@ -443,24 +411,22 @@ namespace NinjaTrader.NinjaScript.Strategies
 					Foreground	= Brushes.White,
 					Background	= Brushes.CornflowerBlue
 				};
-
 				pauseButton.Click += OnButtonClick;				
 				buttonsGrid.Children.Add(pauseButton);
 				System.Windows.Controls.Grid.SetRow(pauseButton, 1);
-				System.Windows.Controls.Grid.SetColumn(pauseButton, 2);
-				
-				killSwitchButton = new System.Windows.Controls.Button
+				System.Windows.Controls.Grid.SetColumn(pauseButton, 2);				
+									
+				shutDownButton = new System.Windows.Controls.Button
 				{
-					Name		= "KillSwitchButton",
-					Content		= "Kill Switch",
+					Name		= "ShutDownButton",
+					Content		= "Shut Down",
 					Foreground	= Brushes.White,
 					Background	= Brushes.CornflowerBlue
 				};
-
-				killSwitchButton.Click += OnButtonClick;				
-				buttonsGrid.Children.Add(pauseButton);
-				System.Windows.Controls.Grid.SetRow(killSwitchButton, 2);
-				System.Windows.Controls.Grid.SetColumn(killSwitchButton, 2);					
+				shutDownButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(shutDownButton);
+				System.Windows.Controls.Grid.SetRow(shutDownButton, 2);
+				System.Windows.Controls.Grid.SetColumn(shutDownButton, 2);					
 
 				// add our button grid to the main UserControlCollection over the chart
 				UserControlCollection.Add(buttonsGrid);
@@ -495,7 +461,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 					longAndShortButton.FontWeight = FontWeights.Bold;					
 				}				
 			}));
-		}		
+		}
 		
 		private void RemoveWPFControls()
 		{
