@@ -65,8 +65,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 				Fast										= 9;
 				Slow										= 26;
 				Qty											= 1;
-				Sl											= 50;
-				Pt											= 50;
+				Sl											= 300;
+				Pt											= 40;
 				StartTime									= DateTime.Parse("07:30", System.Globalization.CultureInfo.InvariantCulture);
 				EndTime										= DateTime.Parse("15:30", System.Globalization.CultureInfo.InvariantCulture);
 				SunOk										= false;
@@ -80,7 +80,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				ShortOnly									= false;
 				AddProfitTarget								= true;
 				LetItRun									= true;
-				DayProfitTarget								= 200;
+				DayProfitTarget								= 175;
 				DayLossTarget								= -150;				
 			}
 			else if (State == State.Configure)
