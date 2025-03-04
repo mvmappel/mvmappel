@@ -129,7 +129,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				return;	
 			
 			double CurrRealizedPNL = 0;
-			CurrRealizedPNL = Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
+			CurrRealizedPNL = Account.Get(AccountItem.GrossRealizedProfitLoss, Currency.UsDollar) + Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar);
 			if (CurrRealizedPNL >= DayProfitTarget || CurrRealizedPNL <= DayLossTarget)
 				ShutItDown();
 				//return;
@@ -182,7 +182,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 					ExitLong(Convert.ToInt32(Qty));
 			}
 			
-			System.Threading.Thread.Sleep(8);
+			// System.Threading.Thread.Sleep(8);
 			CloseStrategy("MAsCrossoverStrategy");
 		}
 		
