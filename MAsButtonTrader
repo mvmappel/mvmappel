@@ -1,0 +1,492 @@
+
+#region Using declarations
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Xml.Serialization;
+using NinjaTrader.Cbi;
+using NinjaTrader.Gui;
+using NinjaTrader.Gui.Chart;
+using NinjaTrader.Gui.SuperDom;
+using NinjaTrader.Gui.Tools;
+using NinjaTrader.Data;
+using NinjaTrader.NinjaScript;
+using NinjaTrader.Core.FloatingPoint;
+using NinjaTrader.NinjaScript.Indicators;
+using NinjaTrader.NinjaScript.DrawingTools;
+#endregion
+
+//This namespace holds Strategies in this folder and is required. Do not change it. 
+namespace NinjaTrader.NinjaScript.Strategies
+{
+	public class MAsButtonTrader : Strategy
+	{
+		private double PriorTradesAllProfit = 0;
+		private double RunningSessionPNL = 0;
+		private bool Pause = false;
+		
+		// Button Management
+		private System.Windows.Controls.Grid		buttonsGrid;
+		private System.Windows.Controls.Button		buyButton, sellButton, longOnlyButton, shortOnlyButton, longAndShortButton, closeButton, qtyPlusButton, qtyMinusButton, pauseButton, shutDownButton;
+		
+		protected override void OnStateChange()
+		{
+			if (State == State.SetDefaults)
+			{
+				Description									= @"On Chart Trade Buttons";
+				Name										= "MAsButtonTrader";
+				Calculate									= Calculate.OnBarClose;
+				EntriesPerDirection							= 1;
+				EntryHandling								= EntryHandling.AllEntries;
+				IsExitOnSessionCloseStrategy				= true;
+				ExitOnSessionCloseSeconds					= 30;
+				IsFillLimitOnTouch							= false;
+				MaximumBarsLookBack							= MaximumBarsLookBack.TwoHundredFiftySix;
+				OrderFillResolution							= OrderFillResolution.Standard;
+				Slippage									= 0;
+				StartBehavior								= StartBehavior.WaitUntilFlat;
+				TimeInForce									= TimeInForce.Gtc;
+				TraceOrders									= false;
+				RealtimeErrorHandling						= RealtimeErrorHandling.StopCancelClose;
+				StopTargetHandling							= StopTargetHandling.PerEntryExecution;
+				BarsRequiredToTrade							= 20;
+				// Disable this property for performance gains in Strategy Analyzer optimizations
+				// See the Help Guide for additional information
+				IsInstantiatedOnEachOptimizationIteration	= true;
+				Qty											= 1;
+				Sl											= 400;
+				Pt											= 500;
+				LongOnly									= false;
+				ShortOnly									= false;
+				UseDailyProfitTarget						= false;
+				UseDailyLossTarget							= false;
+				DayProfitTarget								= 1000;
+				DayLossTarget								= -800;				
+			}
+			else if (State == State.Configure)
+			{
+				SetProfitTarget(@"Long", CalculationMode.Currency, Pt);
+				SetProfitTarget(@"Short", CalculationMode.Currency, Pt);
+				SetStopLoss(@"Long", CalculationMode.Currency, Sl, false);
+				SetStopLoss(@"Short", CalculationMode.Currency, Sl, false);
+				
+				RunningSessionPNL = 0;
+				Qty = 1;
+				Pause = false;
+			}
+			else if (State == State.DataLoaded)
+			{			
+				if (ChartControl != null)
+					CreateWPFControls();
+			}
+			else if (State == State.Terminated)
+			{
+				if (ChartControl != null)
+					RemoveWPFControls();
+			}
+		}
+		
+		protected override void OnBarUpdate()
+		{	
+			if (BarsInProgress != 0) 
+				return;
+
+			if (CurrentBars[0] < 1)
+				return;	
+			
+			if (UseDailyProfitTarget || UseDailyLossTarget) {
+				double CurrRealizedPNL = 0;
+				CurrRealizedPNL = Account.Get(AccountItem.GrossRealizedProfitLoss, Currency.UsDollar) + Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar);
+				if (CurrRealizedPNL >= DayProfitTarget || CurrRealizedPNL <= DayLossTarget)
+					ShutItDown();
+					//return;
+			}
+		}
+		
+		private void ShutItDown()
+		{
+			if (Position.MarketPosition != MarketPosition.Flat) {
+				if (Position.MarketPosition == MarketPosition.Long)
+					ExitLong(Convert.ToInt32(Qty));
+				if (Position.MarketPosition == MarketPosition.Long)
+					ExitLong(Convert.ToInt32(Qty));
+			}
+			
+			// System.Threading.Thread.Sleep(8);
+			CloseStrategy("MAsButtonTrader");
+		}
+		
+		#region Button Management
+		private void OnButtonClick(object sender, RoutedEventArgs rea)
+		{
+			System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+
+			if (button == buyButton)
+			{
+				if (!ShortOnly && !Pause)
+					if (Position.MarketPosition == MarketPosition.Flat)
+						EnterLong(Convert.ToInt32(Qty), @"Long");
+			}
+				
+			if (button == sellButton)
+			{
+				if (!LongOnly && !Pause)
+					if (Position.MarketPosition == MarketPosition.Flat)
+						EnterShort(Convert.ToInt32(Qty), @"Short");
+			}
+			
+			if (button == closeButton)
+			{
+				if (Position.MarketPosition == MarketPosition.Long) {
+					ExitLong(Convert.ToInt32(Qty));
+				} else if (Position.MarketPosition == MarketPosition.Short) {
+					ExitShort(Convert.ToInt32(Qty));
+				}
+			}			
+			
+			if (button == longOnlyButton)
+			{
+				ShortOnly = false;
+				LongOnly = true;
+				shortOnlyButton.IsEnabled = true;
+				longAndShortButton.IsEnabled = true;
+				button.IsEnabled = false;
+				button.Content = "Long Only *";
+				button.Background = Brushes.Black;
+				button.FontStyle = FontStyles.Italic;
+				button.FontWeight = FontWeights.Bold;
+				shortOnlyButton.Background = Brushes.Gray;
+				shortOnlyButton.FontStyle = FontStyles.Normal;
+				shortOnlyButton.FontWeight = FontWeights.Normal;
+				longAndShortButton.Background = Brushes.Gray;
+				longAndShortButton.FontStyle = FontStyles.Normal;
+				longAndShortButton.FontWeight = FontWeights.Normal;				
+			}
+			
+			if (button == shortOnlyButton)
+			{
+				LongOnly = false;
+				ShortOnly = true;
+				longOnlyButton.IsEnabled = true;
+				longAndShortButton.IsEnabled = true;
+				button.IsEnabled = false;
+				button.Content = "Short Only *";
+				button.Background = Brushes.Black;
+				button.FontStyle = FontStyles.Italic;
+				button.FontWeight = FontWeights.Bold;
+				longOnlyButton.Background = Brushes.Gray;
+				longOnlyButton.FontStyle = FontStyles.Normal;
+				longOnlyButton.FontWeight = FontWeights.Normal;
+				longAndShortButton.Background = Brushes.Gray;
+				longAndShortButton.FontStyle = FontStyles.Normal;
+				longAndShortButton.FontWeight = FontWeights.Normal;					
+			}
+			
+			if (button == longAndShortButton)
+			{
+				LongOnly = false;
+				ShortOnly = false;
+				shortOnlyButton.IsEnabled = true;
+				longOnlyButton.IsEnabled = true;
+				button.IsEnabled = false;
+				button.Content = "Long & Short *";
+				button.Background = Brushes.Black;
+				button.FontStyle = FontStyles.Italic;
+				button.FontWeight = FontWeights.Bold;
+				shortOnlyButton.Background = Brushes.Gray;
+				shortOnlyButton.FontStyle = FontStyles.Normal;
+				shortOnlyButton.FontWeight = FontWeights.Normal;
+				longOnlyButton.Background = Brushes.Gray;
+				longOnlyButton.FontStyle = FontStyles.Normal;
+				longOnlyButton.FontWeight = FontWeights.Normal;				
+			}
+				
+			if (button == pauseButton)
+			{
+				string pauseChk = button.Content.ToString();
+				
+				if (pauseChk.Equals("Pause")) {
+					Pause = true;
+					button.Content = "Un-Pause";
+				} else {
+					Pause = false;
+					button.Content = "Pause";
+				}
+			}
+			
+			if (button == shutDownButton)
+			{
+				ShutItDown();
+			}			
+		}
+
+		private void CreateWPFControls()
+		{
+			// if the script has already added the controls, do not add a second time.
+			if (UserControlCollection.Contains(buttonsGrid))
+				return;
+			
+			// when making WPF changes to the UI, run the code on the UI thread of the chart
+			ChartControl.Dispatcher.InvokeAsync((() =>
+			{
+				// this buttonGrid will contain the buttons
+				buttonsGrid = new System.Windows.Controls.Grid
+				{
+					Background			= Brushes.White,
+					Name				= "ButtonsGrid",
+					HorizontalAlignment	= HorizontalAlignment.Center,
+					VerticalAlignment	= VerticalAlignment.Bottom
+				};
+
+				for (int i = 0; i < 3; i++)
+					buttonsGrid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition());
+				
+				for (int i = 0; i < 3; i++)
+					buttonsGrid.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition());
+			
+				longOnlyButton = new System.Windows.Controls.Button
+				{
+					Name		= "LongOnlyButton",
+					Content		= "Long Only",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Gray
+				};				
+				longOnlyButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(longOnlyButton);
+				System.Windows.Controls.Grid.SetRow(longOnlyButton, 0);
+				System.Windows.Controls.Grid.SetColumn(longOnlyButton, 0);
+				
+				shortOnlyButton = new System.Windows.Controls.Button
+				{
+					Name		= "ShortOnlyButton",
+					Content		= "Short Only",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Gray
+				};
+				shortOnlyButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(shortOnlyButton);
+				System.Windows.Controls.Grid.SetRow(shortOnlyButton, 1);
+				System.Windows.Controls.Grid.SetColumn(shortOnlyButton, 0);
+				
+				longAndShortButton = new System.Windows.Controls.Button
+				{
+					Name		= "LongAndShortButton",
+					Content		= "Long & Short",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Gray
+				};
+				longAndShortButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(longAndShortButton);
+				System.Windows.Controls.Grid.SetRow(longAndShortButton, 2);
+				System.Windows.Controls.Grid.SetColumn(longAndShortButton, 0);
+
+				buyButton = new System.Windows.Controls.Button
+				{
+					Name		= "BuyButton",
+					Content		= "Buy",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Green
+				};
+				buyButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(buyButton);
+				System.Windows.Controls.Grid.SetRow(buyButton, 0);
+				System.Windows.Controls.Grid.SetColumn(buyButton, 1);				
+
+				sellButton = new System.Windows.Controls.Button
+				{
+					Name		= "SellButton",
+					Content		= "Sell",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Red
+				};
+				sellButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(sellButton);
+				System.Windows.Controls.Grid.SetRow(sellButton, 1);
+				System.Windows.Controls.Grid.SetColumn(sellButton, 1);
+								
+				closeButton = new System.Windows.Controls.Button
+				{
+					Name		= "CloseButton",
+					Content		= "Close",
+					Foreground	= Brushes.White,
+					Background	= Brushes.Crimson
+				};
+				closeButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(closeButton);
+				System.Windows.Controls.Grid.SetRow(closeButton, 2);
+				System.Windows.Controls.Grid.SetColumn(closeButton, 1);			
+				
+				pauseButton = new System.Windows.Controls.Button
+				{
+					Name		= "PauseButton",
+					Content		= "Pause",
+					Foreground	= Brushes.White,
+					Background	= Brushes.CornflowerBlue
+				};
+				pauseButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(pauseButton);
+				System.Windows.Controls.Grid.SetRow(pauseButton, 1);
+				System.Windows.Controls.Grid.SetColumn(pauseButton, 2);				
+									
+				shutDownButton = new System.Windows.Controls.Button
+				{
+					Name		= "ShutDownButton",
+					Content		= "Shut Down",
+					Foreground	= Brushes.White,
+					Background	= Brushes.CornflowerBlue
+				};
+				shutDownButton.Click += OnButtonClick;				
+				buttonsGrid.Children.Add(shutDownButton);
+				System.Windows.Controls.Grid.SetRow(shutDownButton, 2);
+				System.Windows.Controls.Grid.SetColumn(shutDownButton, 2);					
+
+				// add our button grid to the main UserControlCollection over the chart
+				UserControlCollection.Add(buttonsGrid);
+				
+				if (!LongOnly && !ShortOnly || LongOnly && ShortOnly) {
+					shortOnlyButton.IsEnabled = true;
+					longOnlyButton.IsEnabled = true;
+					longAndShortButton.IsEnabled = false;
+					longAndShortButton.Content = "Long & Short *";
+					longAndShortButton.Background = Brushes.Black;
+					longAndShortButton.FontStyle = FontStyles.Italic;
+					longAndShortButton.FontWeight = FontWeights.Bold;					
+				}
+				
+				if (ShortOnly) {
+					shortOnlyButton.IsEnabled = false;
+					longOnlyButton.IsEnabled = true;
+					longAndShortButton.IsEnabled = true;
+					longAndShortButton.Content = "Short Only *";
+					longAndShortButton.Background = Brushes.Black;
+					longAndShortButton.FontStyle = FontStyles.Italic;
+					longAndShortButton.FontWeight = FontWeights.Bold;					
+				}
+				
+				if (LongOnly) {
+					shortOnlyButton.IsEnabled = true;
+					longOnlyButton.IsEnabled = false;
+					longAndShortButton.IsEnabled = true;
+					longAndShortButton.Content = "Long Only *";
+					longAndShortButton.Background = Brushes.Black;
+					longAndShortButton.FontStyle = FontStyles.Italic;
+					longAndShortButton.FontWeight = FontWeights.Bold;					
+				}				
+			}));
+		}
+		
+		private void RemoveWPFControls()
+		{
+			// when disabling the script, remove the button click handler methods from the click events
+			// set the buttons to null so the garbage collector knows to clean them up and free memory
+			ChartControl.Dispatcher.InvokeAsync((() =>
+			{
+				if (buttonsGrid != null)
+				{
+					if (buyButton != null)
+					{
+						buyButton.Click -= OnButtonClick;
+						buyButton = null;
+					}
+					if (sellButton != null)
+					{
+						sellButton.Click -= OnButtonClick;
+						sellButton = null;
+					}					
+					if (longOnlyButton != null)
+					{
+						longOnlyButton.Click -= OnButtonClick;
+						longOnlyButton = null;
+					}					
+					if (shortOnlyButton != null)
+					{
+						shortOnlyButton.Click -= OnButtonClick;
+						shortOnlyButton = null;
+					}
+					if (longAndShortButton != null)
+					{
+						longAndShortButton.Click -= OnButtonClick;
+						longAndShortButton = null;
+					}
+					if (closeButton != null)
+					{
+						closeButton.Click -= OnButtonClick;
+						closeButton = null;
+					}					
+					if (pauseButton != null)
+					{
+						pauseButton.Click -= OnButtonClick;
+						pauseButton = null;
+					}
+					if (shutDownButton != null)
+					{
+						shutDownButton.Click -= OnButtonClick;
+						shutDownButton = null;
+					}					
+										
+					UserControlCollection.Remove(buttonsGrid);
+				}
+			}));
+		}
+		
+		#endregion
+
+		#region Properties
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name="Qty", Order=1, GroupName="Parameters")]
+		public int Qty
+		{ get; set; }
+
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name="Sl", Order=2, GroupName="Parameters")]
+		public int Sl
+		{ get; set; }
+
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name="Pt", Order=3, GroupName="Parameters")]
+		public int Pt
+		{ get; set; }
+	
+		[NinjaScriptProperty]
+		[Display(Name="LongOnly", Order=4, GroupName="Parameters")]
+		public bool LongOnly
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Display(Name="ShortOnly", Order=5, GroupName="Parameters")]
+		public bool ShortOnly
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Display(Name="UseDailyProfitTarget", Order=6, GroupName="Parameters")]
+		public bool UseDailyProfitTarget
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Display(Name="UseDailyLossTarget", Order=7, GroupName="Parameters")]
+		public bool UseDailyLossTarget
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Display(Name="DayProfitTarget", Order=8, GroupName="Parameters")]
+		public double DayProfitTarget
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Display(Name="DayLossTarget", Order=9, GroupName="Parameters")]
+		public double DayLossTarget
+		{ get; set; }		
+		#endregion
+	}
+}
