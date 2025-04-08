@@ -1,0 +1,61 @@
+//@version=5
+indicator("PRC_Sweep Institucional", overlay=true)
+
+// Inputs
+cooldownPeriod = input.int(10, title="Cooldown Period")
+prd = input.int(20, title="Period for Pivot Calculation")
+
+// Variables for calculations
+var float pLow = na
+var float pHigh = na
+var int pLowIndex = na
+var int pHighIndex = na
+var int bullSignalIndex = na
+var int bearSignalIndex = na
+
+// Pivot Low Calculation
+if low > low[prd] and ta.lowest(low, prd) > low[prd] and low[prd] < ta.lowest(low, prd)[prd + 1]
+    pLow := low[prd]
+    pLowIndex := bar_index[prd]
+    label.new(pLowIndex, pLow, text="L", color=color.green, style=label.style_label_up, textcolor=color.white)
+
+// Pivot High Calculation
+if high < high[prd] and ta.highest(high, prd) < high[prd] and high[prd] > ta.highest(high, prd)[prd + 1]
+    pHigh := high[prd]
+    pHighIndex := bar_index[prd]
+    label.new(pHighIndex, pHigh, text="H", color=color.red, style=label.style_label_down, textcolor=color.white)
+
+// Lowest and Highest Close
+lp = ta.lowest(low, prd)
+hp = ta.highest(high, prd)
+lowestClose = ta.lowest(close, prd)
+highestClose = ta.highest(close, prd)
+
+// Sweep Conditions
+bullishSFP = low < pLow and close > pLow and open > pLow and low == lp and lowestClose >= pLow
+bearishSFP = high > pHigh and close < pHigh and open < pHigh and high == hp and highestClose <= pHigh
+
+bullCond = bullishSFP[3] and (close > pLow) and (close[1] > pLow) and (close[2] > pLow) and bar_index >= bullSignalIndex + cooldownPeriod
+bearCond = bearishSFP[3] and (close < pHigh) and (close[1] < pHigh) and (close[2] < pHigh) and bar_index >= bearSignalIndex + cooldownPeriod
+
+// Draw Sweep Lines
+if bullCond
+    bullSignalIndex := bar_index
+    line.new(pLowIndex, pLow, bar_index[3], pLow, color=color.green, width=2, style=line.style_dotted)
+    label.new(bar_index + 1, pLow - 0.25 * ta.tr, text="Sweep", color=color.green, style=label.style_label_down, textcolor=color.white)
+else if bearCond
+    bearSignalIndex := bar_index
+    line.new(pHighIndex, pHigh, bar_index[3], pHigh, color=color.red, width=2, style=line.style_dotted)
+    label.new(bar_index + 1, pHigh + 0.25 * ta.tr, text="Sweep", color=color.red, style=label.style_label_up, textcolor=color.white)
+
+// Draw Last Pivot High/Low Line
+if barstate.islast
+    if low > pHigh
+        x = ta.barssince(low > pHigh)
+        line.new(pHighIndex, pHigh, bar_index - x, pHigh, color=color.red, width=2)
+ else if high < pLow
+        y = ta.barssince(high < pLow)
+        line.new(pLowIndex, pLow, bar_index - y, pLow, color=color.green, width=2)
+    else
+        line.new(pHighIndex, pHigh, bar_index + 10, pHigh, color=color.red, width=2)
+        line.new(pLowIndex, pLow, bar_index + 10, pLow, color=color.green, width=2)		
