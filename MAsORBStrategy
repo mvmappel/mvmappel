@@ -25,7 +25,7 @@ using NinjaTrader.NinjaScript.DrawingTools;
 //This namespace holds Strategies in this folder and is required. Do not change it. 
 namespace NinjaTrader.NinjaScript.Strategies
 {
-	public class OpeningRangeBreakStrategy : Strategy
+	public class MAsORBStrategy : Strategy
 	{
 		
 		private double ORHigh;
@@ -33,14 +33,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 		private string atmStrategyId 		= string.Empty;
 		private string orderIdB		 		= string.Empty;
 		private string orderIdS		 		= string.Empty;
-		private bool   isAtmStrategyCreated	= false;
+		private bool   isAtmStrategyCreated	= false;	
 		
 		protected override void OnStateChange()
 		{
 			if (State == State.SetDefaults)
 			{
 				Description									= @"A strategy that trades off the opening range high and low";
-				Name										= "OpeningRangeBreakStrategy";
+				Name										= "MAsORBStrategy";
 				Calculate									= Calculate.OnBarClose;
 				EntriesPerDirection							= 1;
 				EntryHandling								= EntryHandling.AllEntries;
@@ -60,10 +60,10 @@ namespace NinjaTrader.NinjaScript.Strategies
 				// Disable this property for performance gains in Strategy Analyzer optimizations
 				// See the Help Guide for additional information
 				IsInstantiatedOnEachOptimizationIteration	= true;
-				OrStartTime						= DateTime.Parse("07:30", System.Globalization.CultureInfo.InvariantCulture);
-				OrEndTime						= DateTime.Parse("07:45", System.Globalization.CultureInfo.InvariantCulture);
-				AddPlot(Brushes.Orange, "OrHighPlot");
-				AddPlot(Brushes.Orange, "OrLowPlot");
+				OrStartTime						= DateTime.Parse("08:30", System.Globalization.CultureInfo.InvariantCulture);
+				OrEndTime						= DateTime.Parse("08:45", System.Globalization.CultureInfo.InvariantCulture);
+				AddPlot(Brushes.Red, "OrHighPlot");
+				AddPlot(Brushes.Green, "OrLowPlot");
 				SunOk							= false;
 				MonOk                        	= true;
 				TuesOk							= true;
@@ -71,8 +71,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 				ThursOk							= true;
 				FriOk							= true;
 				SatOk							= false;
-				SL                              = 150;
-				PT                              = 300;
+				SL                              = 75;
+				PT                              = 150;
 				Qty                            	= 1;
 				ATMon							= false;
 			}
@@ -117,21 +117,21 @@ namespace NinjaTrader.NinjaScript.Strategies
 			
 			if (!TradeDayOk) return;			
 			
-			//if (State != State.Realtime) return;
-			
+			if (State != State.Realtime) return;
+				
 			if (Times[0][0].TimeOfDay == OrStartTime.TimeOfDay) {
 				ORLow = Low[0];
 				ORHigh = High[0];
 			}
 			
 			if (Times[0][0].TimeOfDay > OrStartTime.TimeOfDay && Times[0][0].TimeOfDay < OrEndTime.TimeOfDay) {
-				if (Low[0] < ORLow)
-					ORLow = Low[0];
-				
-				if (High[0] > ORHigh)
-					ORHigh = High[0];
+					if (Low[0] < ORLow)
+						ORLow = Low[0];
+					
+					if (High[0] > ORHigh)
+						ORHigh = High[0];
 			}
-			
+					
 			OrHighPlot[0] = ORHigh;
 			OrLowPlot[0] = ORLow;
 			
@@ -145,7 +145,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 						double buyPrice = 0.0;
 						buyPrice = GetCurrentAsk() + 4 * TickSize;
 						
-						AtmStrategyCreate(OrderAction.Buy, OrderType.Market, 0, buyPrice, TimeInForce.Day, orderIdB, "MAsORBATM", atmStrategyId, (atmCallbackErrorCode, atmCallBackId) => {
+						AtmStrategyCreate(OrderAction.Buy, OrderType.Market, 0, buyPrice, TimeInForce.Day, orderIdB, "MAsORB_ATM_75150_28T", atmStrategyId, (atmCallbackErrorCode, atmCallBackId) => {
 							if (atmCallbackErrorCode == ErrorCode.NoError && atmCallBackId == atmStrategyId)
 								isAtmStrategyCreated = true;
 						});
@@ -160,7 +160,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 						double sellPrice = 0.0;
 						sellPrice = GetCurrentAsk() - 4 * TickSize;
 						
-						AtmStrategyCreate(OrderAction.Sell, OrderType.Market, 0, sellPrice, TimeInForce.Day, orderIdS, "MAsORBATM", atmStrategyId, (atmCallbackErrorCode, atmCallBackId) => {
+						AtmStrategyCreate(OrderAction.Sell, OrderType.Market, 0, sellPrice, TimeInForce.Day, orderIdS, "MAsORB_ATM_75150_28T", atmStrategyId, (atmCallbackErrorCode, atmCallBackId) => {
 							if (atmCallbackErrorCode == ErrorCode.NoError && atmCallBackId == atmStrategyId)
 								isAtmStrategyCreated = true;
 						});
@@ -187,7 +187,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 					atmStrategyId = string.Empty;
 			} else {
 				if (Times[0][0].TimeOfDay > OrEndTime.TimeOfDay && CrossAbove(Close, ORHigh, 1)) {
-					EnterLong(Convert.ToInt32(Qty), @"Long");
+					EnterLong(Convert.ToInt32(Qty), @"Long");				
 				}
 				
 				if (Times[0][0].TimeOfDay > OrEndTime.TimeOfDay && CrossBelow(Close, ORLow, 1)) {
