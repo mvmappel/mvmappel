@@ -136,7 +136,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 			OrLowPlot[0] = ORLow;
 			
 			if (ATMon) {
-				if (Times[0][0].TimeOfDay > OrEndTime.TimeOfDay && atmStrategyId.Length == 0 && CrossAbove(Close, ORHigh, 1)) {
+				if (Times[0][0].TimeOfDay > OrEndTime.TimeOfDay && atmStrategyId.Length == 0 && CrossAbove(Close, ORHigh + 0.5, 1)) {
 					
 						isAtmStrategyCreated = false;
 						atmStrategyId = GetAtmStrategyUniqueId();
@@ -145,13 +145,13 @@ namespace NinjaTrader.NinjaScript.Strategies
 						double buyPrice = 0.0;
 						buyPrice = GetCurrentAsk() + 4 * TickSize;
 						
-						AtmStrategyCreate(OrderAction.Buy, OrderType.Market, 0, buyPrice, TimeInForce.Day, orderIdB, "MAsORB_ATM_75150_28T", atmStrategyId, (atmCallbackErrorCode, atmCallBackId) => {
+						AtmStrategyCreate(OrderAction.Buy, OrderType.Market, 0, buyPrice, TimeInForce.Day, orderIdB, "MAs_MES_ORBATM", atmStrategyId, (atmCallbackErrorCode, atmCallBackId) => {
 							if (atmCallbackErrorCode == ErrorCode.NoError && atmCallBackId == atmStrategyId)
 								isAtmStrategyCreated = true;
 						});
 				}
 			
-				if (Times[0][0].TimeOfDay > OrEndTime.TimeOfDay && atmStrategyId.Length == 0 && CrossBelow(Close, ORLow, 1)) {
+				if (Times[0][0].TimeOfDay > OrEndTime.TimeOfDay && atmStrategyId.Length == 0 && CrossBelow(Close, ORLow - 0.5, 1)) {
 					
 						isAtmStrategyCreated = false;
 						atmStrategyId = GetAtmStrategyUniqueId();
@@ -160,7 +160,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 						double sellPrice = 0.0;
 						sellPrice = GetCurrentAsk() - 4 * TickSize;
 						
-						AtmStrategyCreate(OrderAction.Sell, OrderType.Market, 0, sellPrice, TimeInForce.Day, orderIdS, "MAsORB_ATM_75150_28T", atmStrategyId, (atmCallbackErrorCode, atmCallBackId) => {
+						AtmStrategyCreate(OrderAction.Sell, OrderType.Market, 0, sellPrice, TimeInForce.Day, orderIdS, "MAs_MES_ORBATM", atmStrategyId, (atmCallbackErrorCode, atmCallBackId) => {
 							if (atmCallbackErrorCode == ErrorCode.NoError && atmCallBackId == atmStrategyId)
 								isAtmStrategyCreated = true;
 						});
