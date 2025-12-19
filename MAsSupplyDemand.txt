@@ -1,0 +1,214 @@
+#region Using declarations
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Xml.Serialization;
+using NinjaTrader.Cbi;
+using NinjaTrader.Gui;
+using NinjaTrader.Gui.Chart;
+using NinjaTrader.Gui.SuperDom;
+using NinjaTrader.Gui.Tools;
+using NinjaTrader.Data;
+using NinjaTrader.NinjaScript;
+using NinjaTrader.Core.FloatingPoint;
+using NinjaTrader.NinjaScript.DrawingTools;
+#endregion
+
+//This namespace holds Indicators in this folder and is required. Do not change it. 
+namespace NinjaTrader.NinjaScript.Indicators
+{
+	public class MAsSupplyDemand : Indicator
+	{
+		const double MIDPERC = 0.5;
+		
+		protected override void OnStateChange()
+		{
+			if (State == State.SetDefaults)
+			{
+				Description									= @"An indicator that plots supply and demand zones on chart";
+				Name										= "MAsSupplyDemand";
+				Calculate									= Calculate.OnBarClose;
+				IsOverlay									= true;
+				DisplayInDataBox							= true;
+				DrawOnPricePanel							= true;
+				DrawHorizontalGridLines						= true;
+				DrawVerticalGridLines						= true;
+				PaintPriceMarkers							= true;
+				ScaleJustification							= NinjaTrader.Gui.Chart.ScaleJustification.Right;
+				//Disable this property if your indicator requires custom values that cumulate with each new market data event. 
+				//See Help Guide for additional information.
+				IsSuspendedWhileInactive					= true;
+				SupplyBrush					= Brushes.OrangeRed;
+				DemandBrush					= Brushes.Teal;
+				Opacity						=    20;
+				LookbackPeriod				= 	 90;
+				ZoneSize					=     2;
+				PercAboveBelow              =  0.10;
+				ShowMidLine					= false;
+				ShowPercOffsetLines			= true;				
+			}
+			else if (State == State.Configure)
+			{
+			}
+		}
+
+		protected override void OnBarUpdate()
+		{
+			//Add your custom indicator logic here.
+			if (CurrentBars[0] < 600) return;
+			
+			int highestBarsAgo = HighestBar(High, LookbackPeriod);
+			double zoneHighTop = High[highestBarsAgo];
+			double zoneHighBottom = zoneHighTop - ZoneSize;
+			
+			int lowestBarsAgo = LowestBar(Low, LookbackPeriod);
+			double zoneLowTop = Low[lowestBarsAgo];
+			double zoneLowBottom = zoneLowTop + ZoneSize;
+			
+			//int highLowDiff = ((int)Math.Round(zoneHighBottom) - (int)Math.Round(zoneLowTop)) / 2;
+			double highLowDiff = (zoneHighTop - zoneLowTop) * MIDPERC;
+			double highPercDiff = (zoneHighTop - zoneLowTop) * (MIDPERC + PercAboveBelow);
+			double lowPercDiff = (zoneHighTop - zoneLowTop) * (MIDPERC - PercAboveBelow);			
+			
+			double fiftyPerc = zoneHighTop - (highLowDiff);
+			double aboveFifty = zoneHighTop - (highPercDiff);
+			double belowFifty = zoneHighTop - (lowPercDiff);
+			
+			Draw.RegionHighlightY(this, "Supply", true, zoneHighTop, zoneHighBottom, SupplyBrush, SupplyBrush, Opacity);
+			Draw.RegionHighlightY(this, "Demand", true, zoneLowTop, zoneLowBottom, DemandBrush, DemandBrush, Opacity);
+
+			if (ShowPercOffsetLines) {			
+				Draw.HorizontalLine(this, "AboveFifty", aboveFifty, Brushes.Gold, DashStyleHelper.Dash, 1);
+				Draw.HorizontalLine(this, "BelowFiftyPerc", belowFifty, Brushes.Gold, DashStyleHelper.Dash, 1);			
+			}
+			if (ShowMidLine)
+				Draw.HorizontalLine(this, "FiftyPerc", fiftyPerc, Brushes.White);
+		}
+		
+		#region Properties
+		[NinjaScriptProperty]
+		[XmlIgnore]
+		[Display(Name="SupplyBrush", Order=1, GroupName="Parameters")]
+		public Brush SupplyBrush
+		{ get; set; }
+
+		[Browsable(false)]
+		public string SupplyBrushSerializable
+		{
+			get { return Serialize.BrushToString(SupplyBrush); }
+			set { SupplyBrush = Serialize.StringToBrush(value); }
+		}			
+
+		[NinjaScriptProperty]
+		[XmlIgnore]
+		[Display(Name="DemandBrush", Order=2, GroupName="Parameters")]
+		public Brush DemandBrush
+		{ get; set; }
+
+		[Browsable(false)]
+		public string DemandBrushSerializable
+		{
+			get { return Serialize.BrushToString(DemandBrush); }
+			set { DemandBrush = Serialize.StringToBrush(value); }
+		}			
+
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name="Opacity", Order=3, GroupName="Parameters")]
+		public int Opacity
+		{ get; set; }
+
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name="LookbackPeriod", Order=4, GroupName="Parameters")]
+		public int LookbackPeriod
+		{ get; set; }
+
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name="ZoneSize", Order=5, GroupName="Parameters")]
+		public int ZoneSize
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Range(0.01, double.MaxValue)]
+		[Display(Name="PercAboveBelow", Order=6, GroupName="Parameters")]
+		public double PercAboveBelow
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Display(Name="ShowMidLine", Order=7, GroupName="Parameters")]
+		public bool ShowMidLine
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Display(Name="ShowPercOffsetLines", Order=8, GroupName="Parameters")]
+		public bool ShowPercOffsetLines
+		{ get; set; }		
+		#endregion
+	}
+}
+
+#region NinjaScript generated code. Neither change nor remove.
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
+	{
+		private MAsSupplyDemand[] cacheMAsSupplyDemand;
+		public MAsSupplyDemand MAsSupplyDemand(Brush supplyBrush, Brush demandBrush, int opacity, int lookbackPeriod, int zoneSize, double percAboveBelow, bool showMidLine, bool showPercOffsetLines)
+		{
+			return MAsSupplyDemand(Input, supplyBrush, demandBrush, opacity, lookbackPeriod, zoneSize, percAboveBelow, showMidLine, showPercOffsetLines);
+		}
+
+		public MAsSupplyDemand MAsSupplyDemand(ISeries<double> input, Brush supplyBrush, Brush demandBrush, int opacity, int lookbackPeriod, int zoneSize, double percAboveBelow, bool showMidLine, bool showPercOffsetLines)
+		{
+			if (cacheMAsSupplyDemand != null)
+				for (int idx = 0; idx < cacheMAsSupplyDemand.Length; idx++)
+					if (cacheMAsSupplyDemand[idx] != null && cacheMAsSupplyDemand[idx].SupplyBrush == supplyBrush && cacheMAsSupplyDemand[idx].DemandBrush == demandBrush && cacheMAsSupplyDemand[idx].Opacity == opacity && cacheMAsSupplyDemand[idx].LookbackPeriod == lookbackPeriod && cacheMAsSupplyDemand[idx].ZoneSize == zoneSize && cacheMAsSupplyDemand[idx].PercAboveBelow == percAboveBelow && cacheMAsSupplyDemand[idx].ShowMidLine == showMidLine && cacheMAsSupplyDemand[idx].ShowPercOffsetLines == showPercOffsetLines && cacheMAsSupplyDemand[idx].EqualsInput(input))
+						return cacheMAsSupplyDemand[idx];
+			return CacheIndicator<MAsSupplyDemand>(new MAsSupplyDemand(){ SupplyBrush = supplyBrush, DemandBrush = demandBrush, Opacity = opacity, LookbackPeriod = lookbackPeriod, ZoneSize = zoneSize, PercAboveBelow = percAboveBelow, ShowMidLine = showMidLine, ShowPercOffsetLines = showPercOffsetLines }, input, ref cacheMAsSupplyDemand);
+		}
+	}
+}
+
+namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
+{
+	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
+	{
+		public Indicators.MAsSupplyDemand MAsSupplyDemand(Brush supplyBrush, Brush demandBrush, int opacity, int lookbackPeriod, int zoneSize, double percAboveBelow, bool showMidLine, bool showPercOffsetLines)
+		{
+			return indicator.MAsSupplyDemand(Input, supplyBrush, demandBrush, opacity, lookbackPeriod, zoneSize, percAboveBelow, showMidLine, showPercOffsetLines);
+		}
+
+		public Indicators.MAsSupplyDemand MAsSupplyDemand(ISeries<double> input , Brush supplyBrush, Brush demandBrush, int opacity, int lookbackPeriod, int zoneSize, double percAboveBelow, bool showMidLine, bool showPercOffsetLines)
+		{
+			return indicator.MAsSupplyDemand(input, supplyBrush, demandBrush, opacity, lookbackPeriod, zoneSize, percAboveBelow, showMidLine, showPercOffsetLines);
+		}
+	}
+}
+
+namespace NinjaTrader.NinjaScript.Strategies
+{
+	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
+	{
+		public Indicators.MAsSupplyDemand MAsSupplyDemand(Brush supplyBrush, Brush demandBrush, int opacity, int lookbackPeriod, int zoneSize, double percAboveBelow, bool showMidLine, bool showPercOffsetLines)
+		{
+			return indicator.MAsSupplyDemand(Input, supplyBrush, demandBrush, opacity, lookbackPeriod, zoneSize, percAboveBelow, showMidLine, showPercOffsetLines);
+		}
+
+		public Indicators.MAsSupplyDemand MAsSupplyDemand(ISeries<double> input , Brush supplyBrush, Brush demandBrush, int opacity, int lookbackPeriod, int zoneSize, double percAboveBelow, bool showMidLine, bool showPercOffsetLines)
+		{
+			return indicator.MAsSupplyDemand(input, supplyBrush, demandBrush, opacity, lookbackPeriod, zoneSize, percAboveBelow, showMidLine, showPercOffsetLines);
+		}
+	}
+}
+
+#endregion
