@@ -26,9 +26,9 @@ namespace NinjaTrader.NinjaScript.Indicators
 {
 	public class MAs3EMA : Indicator
 	{
-		private const int totalObjs = 4;
+		private const int totalObjs = 8;
 		private int upCnt = 0;
-		private int downCnt = 0;		
+		private int downCnt = 0;
 		
 		protected override void OnStateChange()
 		{
@@ -47,9 +47,12 @@ namespace NinjaTrader.NinjaScript.Indicators
 				//Disable this property if your indicator requires custom values that cumulate with each new market data event. 
 				//See Help Guide for additional information.
 				IsSuspendedWhileInactive					= true;
-				EmaFast					= 10;
-				EmaMiddle					= 21;
-				EmaSlow					= 55;
+				Cross3EMAs 									= true;
+				EmaFast										= 10;
+				EmaMiddle									= 21;
+				EmaSlow										= 55;
+				EmaFast2									=  8;
+				EmaMiddle2									= 21;
 				AddPlot(Brushes.Green, "EmaFastPlot");
 				AddPlot(Brushes.Orange, "EmaMiddlePlot");
 				AddPlot(Brushes.Red, "EmaSlowPlot");
@@ -61,13 +64,23 @@ namespace NinjaTrader.NinjaScript.Indicators
 
 		protected override void OnBarUpdate()
 		{
-			double emaFast = EMA(Close,EmaFast)[0];
-			double emaMiddle = EMA(Close,EmaMiddle)[0];
-			double emaSlow = EMA(Close,EmaSlow)[0];
-			
-			EmaFastPlot[0] = emaFast;
-			EmaMiddlePlot[0] = emaMiddle;
-			EmaSlowPlot[0] = emaSlow;
+			if (Cross3EMAs) {
+				double emaFast = EMA(Close,EmaFast)[0];
+				double emaMiddle = EMA(Close,EmaMiddle)[0];
+				double emaSlow = EMA(Close,EmaSlow)[0];
+				
+				EmaFastPlot[0] = emaFast;
+				EmaMiddlePlot[0] = emaMiddle;
+				EmaSlowPlot[0] = emaSlow;
+			} else {
+				double emaFast = EMA(Close,EmaFast2)[0];
+				double emaMiddle = EMA(Close,EmaMiddle2)[0];
+				EmaMiddle = EmaFast2;
+				EmaSlow = EmaMiddle2;
+				
+				EmaFastPlot[0] = emaFast;
+				EmaMiddlePlot[0] = emaMiddle;				
+			}
 			
 			if (CrossAbove(EMA(Close,EmaMiddle), EMA(Close,EmaSlow), 1)) {
 				string arrowUpName = CreateObjName("MAsUpArrow", upCnt);
@@ -102,22 +115,39 @@ namespace NinjaTrader.NinjaScript.Indicators
 
 		#region Properties
 		[NinjaScriptProperty]
+		[Display(Name="Cross3EMAs", Order=1, GroupName="Parameters")]
+		public bool Cross3EMAs
+		{ get; set; }		
+		
+		[NinjaScriptProperty]
 		[Range(1, int.MaxValue)]
-		[Display(Name="EmaFast", Order=1, GroupName="Parameters")]
+		[Display(Name="EmaFast", Order=2, GroupName="Parameters")]
 		public int EmaFast
 		{ get; set; }
 
 		[NinjaScriptProperty]
 		[Range(1, int.MaxValue)]
-		[Display(Name="EmaMiddle", Order=2, GroupName="Parameters")]
+		[Display(Name="EmaMiddle", Order=3, GroupName="Parameters")]
 		public int EmaMiddle
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name="EmaSlow", Order=4, GroupName="Parameters")]
+		public int EmaSlow
+		{ get; set; }		
+		
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name="EmaFast2", Order=5, GroupName="Parameters")]
+		public int EmaFast2
 		{ get; set; }
 
 		[NinjaScriptProperty]
 		[Range(1, int.MaxValue)]
-		[Display(Name="EmaSlow", Order=3, GroupName="Parameters")]
-		public int EmaSlow
-		{ get; set; }
+		[Display(Name="EmaMiddle2", Order=6, GroupName="Parameters")]
+		public int EmaMiddle2
+		{ get; set; }		
 
 		[Browsable(false)]
 		[XmlIgnore]
@@ -151,18 +181,18 @@ namespace NinjaTrader.NinjaScript.Indicators
 	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
 	{
 		private MAs3EMA[] cacheMAs3EMA;
-		public MAs3EMA MAs3EMA(int emaFast, int emaMiddle, int emaSlow)
+		public MAs3EMA MAs3EMA(bool cross3EMAs, int emaFast, int emaMiddle, int emaSlow, int emaFast2, int emaMiddle2)
 		{
-			return MAs3EMA(Input, emaFast, emaMiddle, emaSlow);
+			return MAs3EMA(Input, cross3EMAs, emaFast, emaMiddle, emaSlow, emaFast2, emaMiddle2);
 		}
 
-		public MAs3EMA MAs3EMA(ISeries<double> input, int emaFast, int emaMiddle, int emaSlow)
+		public MAs3EMA MAs3EMA(ISeries<double> input, bool cross3EMAs, int emaFast, int emaMiddle, int emaSlow, int emaFast2, int emaMiddle2)
 		{
 			if (cacheMAs3EMA != null)
 				for (int idx = 0; idx < cacheMAs3EMA.Length; idx++)
-					if (cacheMAs3EMA[idx] != null && cacheMAs3EMA[idx].EmaFast == emaFast && cacheMAs3EMA[idx].EmaMiddle == emaMiddle && cacheMAs3EMA[idx].EmaSlow == emaSlow && cacheMAs3EMA[idx].EqualsInput(input))
+					if (cacheMAs3EMA[idx] != null && cacheMAs3EMA[idx].Cross3EMAs == cross3EMAs && cacheMAs3EMA[idx].EmaFast == emaFast && cacheMAs3EMA[idx].EmaMiddle == emaMiddle && cacheMAs3EMA[idx].EmaSlow == emaSlow && cacheMAs3EMA[idx].EmaFast2 == emaFast2 && cacheMAs3EMA[idx].EmaMiddle2 == emaMiddle2 && cacheMAs3EMA[idx].EqualsInput(input))
 						return cacheMAs3EMA[idx];
-			return CacheIndicator<MAs3EMA>(new MAs3EMA(){ EmaFast = emaFast, EmaMiddle = emaMiddle, EmaSlow = emaSlow }, input, ref cacheMAs3EMA);
+			return CacheIndicator<MAs3EMA>(new MAs3EMA(){ Cross3EMAs = cross3EMAs, EmaFast = emaFast, EmaMiddle = emaMiddle, EmaSlow = emaSlow, EmaFast2 = emaFast2, EmaMiddle2 = emaMiddle2 }, input, ref cacheMAs3EMA);
 		}
 	}
 }
@@ -171,14 +201,14 @@ namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
 {
 	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
 	{
-		public Indicators.MAs3EMA MAs3EMA(int emaFast, int emaMiddle, int emaSlow)
+		public Indicators.MAs3EMA MAs3EMA(bool cross3EMAs, int emaFast, int emaMiddle, int emaSlow, int emaFast2, int emaMiddle2)
 		{
-			return indicator.MAs3EMA(Input, emaFast, emaMiddle, emaSlow);
+			return indicator.MAs3EMA(Input, cross3EMAs, emaFast, emaMiddle, emaSlow, emaFast2, emaMiddle2);
 		}
 
-		public Indicators.MAs3EMA MAs3EMA(ISeries<double> input , int emaFast, int emaMiddle, int emaSlow)
+		public Indicators.MAs3EMA MAs3EMA(ISeries<double> input , bool cross3EMAs, int emaFast, int emaMiddle, int emaSlow, int emaFast2, int emaMiddle2)
 		{
-			return indicator.MAs3EMA(input, emaFast, emaMiddle, emaSlow);
+			return indicator.MAs3EMA(input, cross3EMAs, emaFast, emaMiddle, emaSlow, emaFast2, emaMiddle2);
 		}
 	}
 }
@@ -187,14 +217,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 {
 	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
 	{
-		public Indicators.MAs3EMA MAs3EMA(int emaFast, int emaMiddle, int emaSlow)
+		public Indicators.MAs3EMA MAs3EMA(bool cross3EMAs, int emaFast, int emaMiddle, int emaSlow, int emaFast2, int emaMiddle2)
 		{
-			return indicator.MAs3EMA(Input, emaFast, emaMiddle, emaSlow);
+			return indicator.MAs3EMA(Input, cross3EMAs, emaFast, emaMiddle, emaSlow, emaFast2, emaMiddle2);
 		}
 
-		public Indicators.MAs3EMA MAs3EMA(ISeries<double> input , int emaFast, int emaMiddle, int emaSlow)
+		public Indicators.MAs3EMA MAs3EMA(ISeries<double> input , bool cross3EMAs, int emaFast, int emaMiddle, int emaSlow, int emaFast2, int emaMiddle2)
 		{
-			return indicator.MAs3EMA(input, emaFast, emaMiddle, emaSlow);
+			return indicator.MAs3EMA(input, cross3EMAs, emaFast, emaMiddle, emaSlow, emaFast2, emaMiddle2);
 		}
 	}
 }
